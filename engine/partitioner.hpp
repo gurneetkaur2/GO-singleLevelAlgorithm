@@ -1,6 +1,6 @@
 #include "partitioner.h"
-#include "coarsen.h"
-#include "kway.h"
+//#include "coarsen.h"
+//#include "kway.h"
 
 
 /*#ifdef USE_ONE_PHASE_IO
@@ -23,17 +23,17 @@
 //pthread_mutex_t lock_buffer = PTHREAD_MUTEX_INITIALIZER;
 //------------------------------------------------- GK
 // Initialize in-memory Buffers
-void Partitioner::initg(unsigned nCoarseners, unsigned nRefiners, unsigned bSize, unsigned kItems, unsigned nParts)
+void Partitioner::initg(unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts)
 {
   //nBuffers = pow(buffers, 2); // number of buffers is square of number of threads
   //nBuffers = nMappers * nReducers;
 
-  nRows = nCoarseners;
-  nCols = nRefiners;
+  nRows = nMemParts;
+  nCols = nReduceParts;
   writtenToDisk = false;
   batchSize = bSize;
   kBItems = kItems;
-  nparts = nParts;
+//  nparts = nParts;
  // nvertices = nVertices;
 
   //cTotalKeys = new IdType[nBuffers];
@@ -43,6 +43,12 @@ void Partitioner::initg(unsigned nCoarseners, unsigned nRefiners, unsigned bSize
   nEdges = new IdType[nRows * nCols];
  
   outBufMap = new InMemoryContainer[nRows * nCols];
+  readBufMap = new InMemoryContainer[nCols];
+  lookUpTable = new LookUpTable[nCols];
+  fetchBatchIds = new std::set<unsigned>[nCols];
+  readNextInBatch = new std::vector<unsigned long long>[nCols];
+  batchesCompleted = new std::vector<bool>[nCols];
+  keysPerBatch = new std::vector<unsigned>[nCols];
   
   for (unsigned i=0; i<nRows * nCols; ++i){ 
     nItems[i] = 0;
@@ -67,7 +73,7 @@ void Partitioner::initg(unsigned nCoarseners, unsigned nRefiners, unsigned bSize
 }
 
 //-------------------------------------------------
-void Partitioner::releaseMapStructures()
+void Partitioner::releaseInMemStructures()
 {
   for (unsigned i = 0; i < nCols; i++)
     pthread_mutex_destroy(&locks[i]);
@@ -92,26 +98,17 @@ void Partitioner::shutdown()
 //-------------------------------------------------
 void Partitioner::writeBuf(const unsigned tid, const IdType to, const std::vector<unsigned>& from) {
 
-     fprintf(stderr,"\nInside WriteBuf\n");
+//     fprintf(stderr,"\nInside WriteBuf\n");
   unsigned bufferId = hashKey(to) % nCols; 
   unsigned buffer = tid * nCols + bufferId;  
 
   if (outBufMap[buffer].size() >= batchSize) {
-     graph_t *cgraph, *localg; 
-     unsigned CoarsenTo;
-     fprintf(stderr,"outbufmap buffer full with %d records\n", outBufMap[buffer].size());
+ //    fprintf(stderr,"outbufmap buffer full with %d records\n", outBufMap[buffer].size());
      
-     localg = (graph_t *)malloc((outBufMap[buffer].size()) * sizeof(IdType));
-     localg = initsubgraph(tid, buffer);
-
-    CoarsenTo = max((localg->v)/(20*gk_log2(nparts)), 30*(nparts));
-     
-  fprintf(stderr,"Calling coarsen CoarsenTo; %d vertices: %lu\n", CoarsenTo, localg->v);
-     cgraph = coarsen(tid, localg, 2);
-
-   // pthread_mutex_lock(&locks[bufferId]);
-   // totalKeysInFile[bufferId] += nItems[buffer];
-   // pthread_mutex_unlock(&locks[bufferId]);
+    pthread_mutex_lock(&locks[bufferId]);
+      writeToInfinimem(bufferId, totalKeysInFile[bufferId], outBufMap[buffer].size(), outBufMap[buffer]);
+    totalKeysInFile[bufferId] += nItems[buffer];
+    pthread_mutex_unlock(&locks[bufferId]);
 
     outBufMap[buffer].clear();
     nItems[buffer] = 0;
@@ -124,87 +121,12 @@ void Partitioner::writeBuf(const unsigned tid, const IdType to, const std::vecto
 }
 
 //--------------------------------------------------
-graph_t* Partitioner::initsubgraph(const unsigned tid, const unsigned buffer){
-  IdType *xadj, *adjncy;
-// *vwgt, *adjwgt;
-  IdType edge, i ,k;
-     fprintf(stderr,"\nInside initsubgraph\n");
-     graph_t *localg;
-     localg = CreateGraph();
-
-     localg->v = outBufMap[buffer].size();
-     localg->e = nEdges[buffer];
-
-  fprintf(stderr,"localg.v: %d, localg.e: %d\n", localg->v, localg->e);
-     xadj = (IdType *) malloc((localg->v + 1) * sizeof(IdType));
-     adjncy = (IdType *) malloc(((localg->e * 2) + 1) * sizeof(IdType));
-
-     xadj[0]=0, i=0, k=0;
-    
- 
-     for (InMemoryContainerIterator it = outBufMap[buffer].begin(); it != outBufMap[buffer].end(); ++it) {
-           fprintf(stderr,"\n First : %d\n", it->first);
-	   //Add the "to" in the adjncy as well
-           adjncy[k++] = it->first - 1;  
-           std::vector<unsigned> vtemp = it->second;
-           for (unsigned v=0; v<vtemp.size(); v++){
-		edge = vtemp[v];
-                adjncy[k] = edge - 1;
-		k++;       
-           }
-  fprintf(stderr,"i: %d, k: %d\n", i, k);
-           xadj[i+1] = k;
-           i++;
-    }
-     
-     localg->xadj = xadj;
-     localg->adjncy = adjncy;
-     localg->adjwgt = (IdType *) malloc(localg->e * sizeof(IdType));
-
-  for(int i = 0; i < localg->e; i++)
-                localg->adjwgt[i] = 1;
-
-
-   localg->vwgt = (IdType *) malloc(localg->v * sizeof(IdType));
-
-   for(int i = 0; i < localg->v; i++)
-                localg->vwgt[i] = 1;
-
-    localg->vsize = (IdType *)malloc((localg->v) * sizeof(IdType)); 
-      for(int i = 0; i < localg->v; i++)
-                localg->vsize[i] = 1;
-
-//   localg->vsize     = NULL;
-   localg->cmap      = NULL;
-   localg->coarser   = NULL;
-   localg->finer     = NULL;
-   localg->ncon      = 1;
-
-   /* by default these are set to true, but the can be explicitly changed afterwards */
-  localg->free_xadj   = 1;
-  localg->free_vwgt   = 1;
-  localg->free_vsize  = 1;
-  localg->free_adjncy = 1;
-  localg->free_adjwgt = 1;
-
-   localg->label     = NULL;
-   localg->where     = NULL;
-   localg->pwgts     = NULL;
-   localg->bndptr    = NULL;
-   localg->bndind    = NULL;
-
-   SetupGraph_label(localg);
-
-   return localg;
-}
-
-//--------------------------------------------------
 void Partitioner::performWrite(const unsigned tid, const unsigned buffer, const IdType to, const std::vector<unsigned>& from) {
-//  std::vector<unsigned> nbrs{from};
-  InMemoryContainerIterator it = outBufMap[buffer].find(to); 
+  std::vector<unsigned> nbrs{from};
+  InMemoryContainerIterator it_to = outBufMap[buffer].find(to); 
 
-  if(it != outBufMap[buffer].end()){
-     combine(to, it->second, from);
+  if(it_to != outBufMap[buffer].end()){
+     combine(to, it_to->second, from);
 //      outBufMap[buffer][to].push_back(from);
       nEdges[buffer]++;
       }
@@ -216,25 +138,59 @@ void Partitioner::performWrite(const unsigned tid, const unsigned buffer, const 
 }
 
 //--------------------------------------------------
+void Partitioner::writeToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, const InMemoryContainer& inMemMap) {
+  RecordType* records = new RecordType[noItems]; 
+  unsigned ct = 0;
+
+  for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {
+      records[ct].set_rank(it->first);
+
+    for (std::vector<unsigned>::const_iterator vit = it->second.begin(); vit != it->second.end(); ++vit){
+      records[ct].add_nbrs(*vit);
+      }
+
+    ++ct;
+  }
+    if (ct != noItems){
+     fprintf(stderr,"\nCT: %d noItems: %d InMemMap Size: %d\n", ct, noItems, inMemMap.size());
+}
+  assert(ct == noItems);
+  io->file_set_batch(buffer, startKey, noItems, records);
+
+  delete[] records;
+}
+
+//--------------------------------------------------
+void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, InMemoryConstIterator begin, InMemoryConstIterator end) {
+  RecordType* records = new RecordType[noItems]; 
+  unsigned ct = 0;
+
+  for (InMemoryConstIterator it = begin; it != end; ++it) {
+     records[ct].set_rank(it->first);
+
+    for (std::vector<unsigned>::const_iterator vit = it->second.begin(); vit != it->second.end(); ++vit)
+      records[ct].add_nbrs(*vit);
+
+  
+    ++ct;
+  }
+
+  assert(ct == noItems);
+  io->file_set_batch(buffer, startKey, noItems, records);
+
+  delete[] records;
+}
+
+//--------------------------------------------------
 void Partitioner::flushBResidues(const unsigned tid) {
 
-  fprintf(stderr,"\nFlushing buffer residues\n");
-     graph_t *cgraph, *localg; 
-     unsigned CoarsenTo;
-     
-     localg = (graph_t *)malloc((outBufMap[tid].size()) * sizeof(IdType));
-
-    CoarsenTo = max((localg->v)/(20*gk_log2(nparts)), 30*(nparts));
+  //fprintf(stderr,"\nFlushing buffer residues\n");
      
   if(tid >= nCols) 
     return;
 
   if(nRows == 1) {
-      localg = initsubgraph(tid, tid);
-  fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-     cgraph = coarsen(tid, localg, 2);
-
-  //  writeToInfinimem(tid, totalKeysInFile[tid], static_cast<unsigned>(outBufMap[tid].size()), outBufMap[tid]);
+    writeToInfinimem(tid, totalKeysInFile[tid], static_cast<unsigned>(outBufMap[tid].size()), outBufMap[tid]);
     outBufMap[tid].clear();
     totalKeysInFile[tid] += nItems[tid];
     nItems[tid] = 0;
@@ -272,11 +228,7 @@ void Partitioner::flushBResidues(const unsigned tid) {
 
     if(i == nRows - 1) {
       if(findB1 && findB2) {
-          localg = initsubgraph(tid, i);
-  fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-     cgraph = coarsen(tid, localg, 2);
-
-//        writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[i].size(), outBufMap[i]);
+        writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[i].size(), outBufMap[i]);
         outBufMap[i].clear();
         totalKeysInFile[tid] += nItems[i];
         nItems[i] = 0;
@@ -298,11 +250,7 @@ void Partitioner::flushBResidues(const unsigned tid) {
         b2Merged += merge(outBufMap[b1], b1, tid, b2Iter, b2End);
         if(outBufMap[b1].size() == 0) {
           if(b2Iter != b2End) {
-               localg = initsubgraph(tid, b2);
-  		fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-     		cgraph = coarsen(tid, localg, 2);
-
- //           bWriteToInfinimem(tid, totalKeysInFile[tid], outBufMap[b2].size() - b2Merged, b2Iter, b2End);
+            bWriteToInfinimem(tid, totalKeysInFile[tid], outBufMap[b2].size() - b2Merged, b2Iter, b2End);
             outBufMap[b2].clear();
             totalKeysInFile[tid] += (nItems[b2] - b2Merged);
             nItems[b2] = 0;
@@ -310,11 +258,7 @@ void Partitioner::flushBResidues(const unsigned tid) {
         } 
         if(b2Iter == b2End) {
           if(outBufMap[b1].size() != 0) {
-              localg = initsubgraph(tid, b1);
-  		fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-       		cgraph = coarsen(tid, localg, 2);
-
-//            writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[b1].size(), outBufMap[b1]);
+            writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[b1].size(), outBufMap[b1]);
             outBufMap[b1].clear();
             totalKeysInFile[tid] += nItems[b1];
             nItems[b1] = 0;
@@ -324,20 +268,12 @@ void Partitioner::flushBResidues(const unsigned tid) {
           assert(false);
     } else if(i == nRows) {
       if(outBufMap[b1].size() > 0) {
-          localg = initsubgraph(tid, b1);
-  	  fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-          cgraph = coarsen(tid, localg, 2);
-
-//        writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[b1].size(), outBufMap[b1]);
+        writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[b1].size(), outBufMap[b1]);
         outBufMap[b1].clear();
         totalKeysInFile[tid] += nItems[b1];
         nItems[b1] = 0;
       } else {  
-           localg = initsubgraph(tid, b2);
-  	   fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-     	   cgraph = coarsen(tid, localg, 2);
-
-//        bWriteToInfinimem(tid, totalKeysInFile[tid], outBufMap[b2].size() - b2Merged, b2Iter, b2End);
+        bWriteToInfinimem(tid, totalKeysInFile[tid], outBufMap[b2].size() - b2Merged, b2Iter, b2End);
         outBufMap[b2].clear();
         totalKeysInFile[tid] += (nItems[b2] - b2Merged);
         nItems[b2] = 0;
@@ -352,18 +288,7 @@ unsigned long long Partitioner::merge(InMemoryContainer& toMap, unsigned whichMa
   unsigned long long ct = 0;
   while(begin != end) {
     if(toMap.size() >= batchSize) {
-     graph_t *cgraph, *localg; 
-     unsigned CoarsenTo;
-     
-     localg = (graph_t *)malloc((toMap.size()) * sizeof(IdType));
-
-    CoarsenTo = max((localg->v)/(20*gk_log2(nparts)), 30*(nparts));
-
-      localg = initsubgraph(tid, tid);   // TODO::buffer maynot be correct
-     fprintf(stderr,"Calling coarsen CoarsenTo; %d\n", CoarsenTo);
-      cgraph = coarsen(tid, localg, 2);
-
- //     writeToInfinimem(tid, totalKeysInFile[tid], toMap.size(), toMap);
+      writeToInfinimem(tid, totalKeysInFile[tid], toMap.size(), toMap);
       toMap.clear();
       totalKeysInFile[tid] += nItems[whichMap];
       nItems[whichMap] = 0; 
@@ -381,4 +306,119 @@ unsigned long long Partitioner::merge(InMemoryContainer& toMap, unsigned whichMa
     ++begin;
   }
   return ct;
+}
+
+//--------------------------------------------------
+void Partitioner::readInit(const unsigned tid) {
+  unsigned j=0;
+  for (unsigned long long i = 0; i <= totalKeysInFile[tid]; i+= batchSize) {
+    readNextInBatch[tid].push_back(i); 
+    fetchBatchIds[tid].insert(j++); 
+    batchesCompleted[tid].push_back(false); 
+    keysPerBatch[tid].push_back(kBItems); 
+  }
+}
+
+
+//--------------------------------------------------
+bool Partitioner::read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted) {
+
+//  fprintf(stderr,"\nInside Partitioner::read \n");
+  RecordType* records = new RecordType[kBItems];
+  unsigned batch = 0;
+  for(auto it = fetchBatchIds.begin(); it != fetchBatchIds.end(); ++it) {
+    batch = *it ;
+    unsigned long long batchBoundary = std::min(static_cast<unsigned long long>((batch + 1) * batchSize), static_cast<unsigned long long>(totalKeysInFile[tid]));
+
+    if (readNextInBatch[batch] >= batchBoundary) {
+      batchesCompleted[batch] = true;
+      continue;
+    }
+
+    keysPerBatch[batch] = std::min(keysPerBatch[batch], static_cast<unsigned>(batchBoundary - readNextInBatch[batch]));
+
+    if (keysPerBatch[batch] > 0 && readNextInBatch[batch] < batchBoundary)
+      io->file_get_batch(tid, readNextInBatch[batch], keysPerBatch[batch], records); 
+
+    for (unsigned i = 0; i < keysPerBatch[batch]; i++) {
+      lookUpTable[records[i].rank()].push_back(batch);
+      readBufMap[records[i].rank()];
+
+      for (unsigned k = 0; k < records[i].nbrs_size(); k++)
+        readBufMap[records[i].rank()].push_back(records[i].nbrs(k));
+    }
+
+    readNextInBatch[batch] += keysPerBatch[batch];
+    keysPerBatch[batch] = 0;
+
+    if (readNextInBatch[batch] >= batchBoundary)
+      batchesCompleted[batch] = true;
+  }
+
+  fetchBatchIds.clear();
+
+  bool ret = false;
+  for (unsigned readBatch = 0; readBatch < batchesCompleted.size(); readBatch++)
+    if (batchesCompleted[readBatch] == false) {
+      ret = true;
+      break;
+    }
+
+  delete[] records;
+  return ret;
+}
+
+//--------------------------------------------------
+bool Partitioner::read(const unsigned tid) {
+  return read(tid, readBufMap[tid], keysPerBatch[tid], lookUpTable[tid], fetchBatchIds[tid], readNextInBatch[tid], batchesCompleted[tid]);
+}
+
+//--------------------------------------------------
+InMemoryReductionState Partitioner::initiateInMemoryReduce(unsigned tid) {
+  InMemoryReductionState state(nRows); 
+  for(unsigned i=0; i<nRows; ++i) {
+    state.begins[i] = outBufMap[tid + nCols * i].begin();
+    state.ends[i] = outBufMap[tid + nCols * i].end();
+  }
+
+  return state;
+}
+
+//--------------------------------------------------
+bool Partitioner::getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record) {
+  std::vector<unsigned> minIds;
+  unsigned minKey;
+  bool found = false;
+
+  for(unsigned i=0; i<nRows; ++i) {
+    if(state->begins[i] == state->ends[i])
+      continue;
+
+    if(!found) {
+      minKey = state->begins[i]->first;
+      minIds.push_back(i);
+      found = true;
+    } else {
+      if(state->begins[i]->first < minKey) {
+        minKey = state->begins[i]->first;
+        minIds.clear();
+        minIds.push_back(i);
+      } else if(state->begins[i]->first == minKey) {
+        minIds.push_back(i);
+      }
+    }
+  }
+
+  if(!found)
+    return false;
+
+  std::vector<unsigned>& values = (*record)[minKey];
+  for(std::vector<unsigned>::iterator it = minIds.begin(); it != minIds.end(); ++it) {
+    for(std::vector<unsigned>::const_iterator vit = state->begins[*it]->second.begin(); vit != state->begins[*it]->second.end(); ++vit) 
+      values.push_back(*vit);
+
+    ++state->begins[*it];
+  }
+
+  return true;
 }

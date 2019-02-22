@@ -34,6 +34,7 @@ using InMemoryContainerConstIterator = typename InMemoryContainer<KeyType, Value
 typedef std::map<unsigned, std::vector<unsigned> > InMemoryContainer;  
 typedef InMemoryContainer::iterator InMemoryContainerIterator; 
 typedef InMemoryContainer::const_iterator InMemoryConstIterator;
+typedef std::map<unsigned, std::vector<unsigned> > LookUpTable;
 typedef double real_t;
 
 std::vector<double> writeBuf_times;
@@ -44,56 +45,55 @@ std::vector<uint64_t> localCombinedPairs;
 
 void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from);
 
+class InMemoryReductionState {
+  public:
+  std::vector<InMemoryConstIterator > begins;
+  std::vector<InMemoryConstIterator > ends;
+
+  InMemoryReductionState(unsigned size) : begins(size), ends(size) { }
+};
 
 class Partitioner
 {
   public:
-    void initg(unsigned nCoarseners, unsigned nRefiners, unsigned bSize, unsigned kItems, unsigned nParts);
+    void initg(unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts);
 //    void coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const  unsigned int* mapSupRowstoRows);
     void writeBuf(const unsigned tid, const IdType to, const std::vector<unsigned>& from); 
-    graph_t* initsubgraph(const unsigned tid, const unsigned buffer);
+//    graph_t* initsubgraph(const unsigned tid, const unsigned buffer);
     void performWrite(const unsigned tid, const unsigned buffer, const IdType to, const std::vector<unsigned>& from);
+ 
+    void writeToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, const InMemoryContainer& inMemMap);
 
+    void bWriteToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, InMemoryConstIterator begin, InMemoryConstIterator end);
 
-   // Coarsening related 
-    graph_t* coarsen(const unsigned tid, graph_t *origG, unsigned CoarsenTo);
-    IdType Match_RM(graph_t *graph);
-    void CreateCoarseGraph(graph_t *graph, IdType cnvtxs, IdType *match);
+    void readInit(const unsigned tid);
+    bool read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted);
+    bool read(const unsigned tid);    
 
-   // Init Partition
-    void AllocateKWayPartitionMemory(graph_t *graph);
-    void InitKWayPartitioning(graph_t *graph);
-    void PartGraphRecursive(IdType*, IdType*, IdType*, IdType*, IdType*, 
- 			    IdType*, IdType*, unsigned int*, IdType*, IdType*);
-    IdType MlevelRecursiveBisection(graph_t *graph, IdType nparts, 
-          IdType *part, IdType fpart);
-    IdType MultilevelBisect(graph_t *graph);
-    void SplitGraphPart(graph_t *graph, graph_t **r_lgraph, graph_t **r_rgraph);
+    bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
+    InMemoryReductionState initiateInMemoryReduce(unsigned tid);
 
-   // Graph related
-    graph_t *CreateGraph(void);
-    void InitGraph(graph_t *graph);
-    graph_t* SetupCoarseGraph(graph_t *graph, IdType cnvtxs, IdType dovsize);
-    graph_t* SetupGraph(IdType nvtxs, IdType ncon, IdType *xadj,
-             IdType *adjncy, IdType *vwgt, IdType *vsize, IdType *adjwgt);
-    void SetupGraph_label(graph_t *graph);
-    void FreeGraph(graph_t **r_graph);
-
-    void releaseMapStructures();
+    void releaseInMemStructures();
     void shutdown();
     void flushBResidues(const unsigned tid);
     unsigned long long merge(InMemoryContainer& toMap, unsigned whichMap, unsigned tid, InMemoryContainerIterator& begin, InMemoryConstIterator end);
 
     bool getWrittenToDisk() { return writtenToDisk; }
 
+    InMemoryContainer* readBufMap;
+    LookUpTable* lookUpTable;
+    std::set<unsigned>* fetchBatchIds;
+
+    std::vector<unsigned long long>* readNextInBatch;
+    std::vector<bool>* batchesCompleted;
+    std::vector<unsigned>* keysPerBatch;
   private:
    
-    unsigned nvertices; 
     unsigned nRows;
     unsigned nCols;
     unsigned batchSize;  //GK
     unsigned kBItems;  //GK
-    unsigned nparts;  //GK
+//    unsigned nparts;  //GK
     bool firstInit;
     //IdType* cTotalKeys; //GK
     IdType* nItems; //GK

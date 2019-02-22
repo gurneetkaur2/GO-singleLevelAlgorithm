@@ -89,10 +89,17 @@ class RecordType : public ::google::protobuf::Message {
 
   // accessors -------------------------------------------------------
 
-  // repeated uint64 nbrs = 1;
+  // required uint64 rank = 1;
+  inline bool has_rank() const;
+  inline void clear_rank();
+  static const int kRankFieldNumber = 1;
+  inline ::google::protobuf::uint64 rank() const;
+  inline void set_rank(::google::protobuf::uint64 value);
+
+  // repeated uint64 nbrs = 2;
   inline int nbrs_size() const;
   inline void clear_nbrs();
-  static const int kNbrsFieldNumber = 1;
+  static const int kNbrsFieldNumber = 2;
   inline ::google::protobuf::uint64 nbrs(int index) const;
   inline void set_nbrs(int index, ::google::protobuf::uint64 value);
   inline void add_nbrs(::google::protobuf::uint64 value);
@@ -101,13 +108,6 @@ class RecordType : public ::google::protobuf::Message {
   inline ::google::protobuf::RepeatedField< ::google::protobuf::uint64 >*
       mutable_nbrs();
 
-  // required uint64 rank = 3;
-  inline bool has_rank() const;
-  inline void clear_rank();
-  static const int kRankFieldNumber = 3;
-  inline ::google::protobuf::uint64 rank() const;
-  inline void set_rank(::google::protobuf::uint64 value);
-
   // @@protoc_insertion_point(class_scope:RecordType)
  private:
   inline void set_has_rank();
@@ -115,8 +115,8 @@ class RecordType : public ::google::protobuf::Message {
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
-  ::google::protobuf::RepeatedField< ::google::protobuf::uint64 > nbrs_;
   ::google::protobuf::uint64 rank_;
+  ::google::protobuf::RepeatedField< ::google::protobuf::uint64 > nbrs_;
 
   mutable int _cached_size_;
   ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
@@ -135,7 +135,29 @@ class RecordType : public ::google::protobuf::Message {
 
 // RecordType
 
-// repeated uint64 nbrs = 1;
+// required uint64 rank = 1;
+inline bool RecordType::has_rank() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void RecordType::set_has_rank() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void RecordType::clear_has_rank() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void RecordType::clear_rank() {
+  rank_ = GOOGLE_ULONGLONG(0);
+  clear_has_rank();
+}
+inline ::google::protobuf::uint64 RecordType::rank() const {
+  return rank_;
+}
+inline void RecordType::set_rank(::google::protobuf::uint64 value) {
+  set_has_rank();
+  rank_ = value;
+}
+
+// repeated uint64 nbrs = 2;
 inline int RecordType::nbrs_size() const {
   return nbrs_.size();
 }
@@ -158,28 +180,6 @@ RecordType::nbrs() const {
 inline ::google::protobuf::RepeatedField< ::google::protobuf::uint64 >*
 RecordType::mutable_nbrs() {
   return &nbrs_;
-}
-
-// required uint64 rank = 3;
-inline bool RecordType::has_rank() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void RecordType::set_has_rank() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void RecordType::clear_has_rank() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void RecordType::clear_rank() {
-  rank_ = GOOGLE_ULONGLONG(0);
-  clear_has_rank();
-}
-inline ::google::protobuf::uint64 RecordType::rank() const {
-  return rank_;
-}
-inline void RecordType::set_rank(::google::protobuf::uint64 value) {
-  set_has_rank();
-  rank_ = value;
 }
 
 
