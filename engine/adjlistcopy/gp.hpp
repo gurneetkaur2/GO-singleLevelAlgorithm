@@ -50,35 +50,40 @@ void* doMParts(void* arg)
    infile.seekg(tid*mr->bytesPerFile);
 
    std::string line;
-      
-   unsigned k, i;
-   std::vector<unsigned> where (mr->nVertices+1, -1);
-   std::vector<unsigned> whereDst (mr->nVertices+1, -1);    
    fprintf(stderr, "Creating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
+   unsigned k, i;
+   std::vector<unsigned> where (mr->nVertices, -1);
+   std::vector<unsigned> whereDst (mr->nVertices, -1);    
+   unsigned* xadj;
+   unsigned* adncy;
+   bool firstRep = false;
+   xadj = (unsigned *) malloc((mr->nVertices + 1) * sizeof(unsigned));
+   adncy = (unsigned *) malloc(((mr->nEdges * 2) + 1) * sizeof(unsigned));
 
-   //std::getline(infile, line);
-   unsigned long long bytesRead = 0; 
-
-   while(std::getline(infile, line) && bytesRead <= mr->bytesPerFile) {
-        fprintf(stderr,"\nTID: %d, bytesRead: %d, bytesPerFile: %d ", tid, bytesRead, mr->bytesPerFile);
+   xadj[0]=0, k=0, i=0;
+   while(std::getline(infile, line)) {
         time_mparts -= getTimer();
-       
         std::stringstream inputStream(line);
         unsigned to, from;
         inputStream >> to;
+        firstRep = true;
 
         while(inputStream >> from){
-             fprintf(stderr,"\nTID: %d, TO: %zu FROM: %zu ",tid, to, from);
-             mr->writeBuf(tid, to, from, where, whereDst);
+             fprintf(stderr,"\nTO: %zu FROM; %zu ", to, from);
+             k = mr->writeBuf(tid, to, from, k, adncy, where, whereDst, firstRep);
+             firstRep = false;
         }
-          bytesRead += line.length();        
+        xadj[i+1] = k;
+        fprintf(stderr,"xadj: %d, k: %d, i: %d\n", xadj[i+1], k, i);
+        i++;
+        
           time_mparts += getTimer();
     }
   
 //  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
 //  fprintf(stderr, "thread %u waiting for others to finish work\n", tid);
   time_mparts -= getTimer();
-  pthread_barrier_wait(&(mr->barMParts));
+//  pthread_barrier_wait(&(mr->barCoarsen));
   if(partitioner.getWrittenToDisk())
     mr->partitioner.flushBResidues(tid);
 
@@ -87,6 +92,8 @@ void* doMParts(void* arg)
   mr->mparts_times[tid] = time_mparts;
  
      fprintf(stderr,"\nSuccessfully Uploaded the Graph\n");
+  free(xadj); xadj=NULL;
+  free(adncy); adncy=NULL;
   return NULL;
 }
 
@@ -265,14 +272,15 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
   std::cout << "batchSize: " << batchSize << std::endl;
   std::cout << "topk: " << kBItems << std::endl;
 
-  pthread_barrier_init(&barMParts, NULL, nThreads);
+//  pthread_barrier_init(&barMParts, NULL, nInMemParts);
 //  pthread_barrier_init(&barReduce, NULL, nRefiners);
 }
 
 //--------------------------------------------  GK
 //void GraphParts::coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const unsigned int* mapSupRowstoRows)
-void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where, std::vector<unsigned>& whereDst){
-   partitioner.writeBuf(tid, to, from, where, whereDst);
+unsigned GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned from, unsigned k, unsigned* adjncy, std::vector<unsigned>& where, std::vector<unsigned>& whereDst, bool firstRep){
+   k = partitioner.writeBuf(tid, to, from, k, adjncy, where, whereDst, firstRep);
+   return k;
 }
 
 /*void GraphParts::coarsen(const unsigned tid, graph_t *graph, graph_t *cgraph, unsigned CoarsenTo)

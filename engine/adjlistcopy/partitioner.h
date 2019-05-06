@@ -63,9 +63,9 @@ class Partitioner
     void initg(unsigned nVertices, unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts);
 //    void coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const  unsigned int* mapSupRowstoRows);
     void writeInit(const unsigned tid);
-    void writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where, std::vector<unsigned>& whereDst);
+    unsigned writeBuf(const unsigned tid, const unsigned to, const unsigned from, unsigned k, unsigned* adjncy, std::vector<unsigned>& where, std::vector<unsigned>& whereDst, bool firstRep);
 //    graph_t* initsubgraph(const unsigned tid, const unsigned buffer);
-    void performWrite(const unsigned tid, const unsigned buffer, const unsigned to, const unsigned from);
+    unsigned performWrite(const unsigned tid, const unsigned buffer, const unsigned to, const unsigned from, unsigned k, unsigned* adjncy, bool firstRep);
  
     void writeToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, const InMemoryContainer& inMemMap);
 
@@ -84,7 +84,7 @@ class Partitioner
     bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
     InMemoryReductionState initiateInMemoryReduce(unsigned tid);
 
-    void ComputeBECut(const unsigned tid, const unsigned buffer, std::vector<unsigned>& where, std::vector<unsigned>& bndind, std::vector<unsigned> bndptr, const InMemoryContainer& inMemMap);
+    void ComputeBECut(const unsigned tid, const unsigned buffer, std::vector<unsigned>& where, std::vector<unsigned>& bndind, std::vector<unsigned> bndptr);
     void releaseInMemStructures();
     void shutdown();
     void flushBResidues(const unsigned tid);

@@ -129,29 +129,30 @@ void Partitioner::writeInit(const unsigned tid) {
 
 
 //-------------------------------------------------
-void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where, std::vector<unsigned>& whereDst){
+unsigned Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, unsigned k, unsigned* adjncy, std::vector<unsigned>& where, std::vector<unsigned>& whereDst, bool firstRep){
 
+  unsigned xadjVal = k;
   unsigned buffer = tid % nCols; 
 //  unsigned buffer = tid * nCols + bufferId;  
 //  std::vector<unsigned> where (nVtces,0);  //TODO: Ideally it should be batchsize here
 //  std::vector<unsigned> whereDst (nVtces);
-  std::vector<unsigned> bndind (nVtces+1,0);
-  std::vector<unsigned> bndptr (nVtces+1,-1); 
+  std::vector<unsigned> bndind (nVtces,0);
+  std::vector<unsigned> bndptr (nVtces,-1); 
 
    where.at(to) = buffer;
 
   // if the vertex assigned a partition is not added already then add it
   if (std::find(whereDst.begin(), whereDst.end(), to) == whereDst.end()){
      fprintf(stderr,"\nAdding to: %d in whereDst\n", to); 
-      whereDst.push_back(to);  //record all the vertices which have been assigned a partition avoiding duplicates
+      whereDst.push_back(to);  //record all the vertices which have been assigned a part
    }
 
-  fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
+  fprintf(stderr,"\nwhere[%d]: %d, bufferID: %d\n\n", to, where[to], buffer);
 
   if (outBufMap[buffer].size() >= batchSize) {
     fprintf(stderr,"outbufmap buffer full with %d records\n", outBufMap[buffer].size());
      
-    ComputeBECut(tid, buffer, where, bndind, bndptr, outBufMap[buffer]);
+//    ComputeBECut(tid, buffer, where, bndind, bndptr);
 //    sCopy(tid, bndind, bndptr, partitionBndInd[tid], partitionBndPtr[tid]);
     pthread_mutex_lock(&locks[buffer]);
    
@@ -171,12 +172,13 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
     writtenToDisk = true;
   }
 
-  performWrite(tid, buffer, to, from);
+  xadjVal = performWrite(tid, buffer, to, from, k, adjncy, firstRep);
  // fprintf(stderr,"total edges in buffer: %d\n", nEdges[buffer]);
+  return xadjVal;
 }
 
 //--------------------------------------------------
-void Partitioner::performWrite(const unsigned tid, const unsigned buffer, const unsigned to, const unsigned from) {
+unsigned Partitioner::performWrite(const unsigned tid, const unsigned buffer, const unsigned to, const unsigned from, unsigned k, unsigned* adjncy, bool firstRep) {
   std::vector<unsigned> nbrs{from};
   InMemoryContainerIterator it_to = outBufMap[buffer].find(to); 
   IdType edge;
@@ -184,14 +186,35 @@ void Partitioner::performWrite(const unsigned tid, const unsigned buffer, const 
 
   if(it_to != outBufMap[buffer].end()){
      combine(to, it_to->second, nbrs);
+     if(firstRep){
+        edge = to;
+        adjncy[k] = edge - 1;
+    fprintf(stderr,"\nsrc: %d, adjncy: %d, edge-1: %d\n", to, adjncy[k], edge-1);
+        k++;
+     }
+     edge = from;
+     adjncy[k] = edge - 1;
+     fprintf(stderr,"\nsrc: %d, adjncy: %d, edge-1: %d\n", from, adjncy[k], edge-1);
+     k++;
 //     outBufMap[buffer][to].push_back(from);
 //     nEdges[buffer]++;
       }
   else {
     outBufMap[buffer].emplace(to, nbrs); 
+    if(firstRep){
+      edge = to;
+      adjncy[k] = edge - 1;
+    fprintf(stderr,"\nsrc: %d, adjncy: %d, edge-1: %d\n", to, adjncy[k], edge-1);
+      k++;
+     }
+    edge = from;
+    adjncy[k] = edge - 1;
+    fprintf(stderr,"\nsrc: %d, adjncy: %d, edge-1: %d\n", from, adjncy[k], edge-1);
+    k++;
     nItems[buffer]++;
   //  nEdges[buffer]++;
   }
+ return k;
 }
 
 //--------------------------------------------------
@@ -501,32 +524,33 @@ bool Partitioner::getNextMinKey(InMemoryReductionState* state, InMemoryContainer
 
 
 //--------------------------------------------------
-void Partitioner::ComputeBECut(const unsigned tid, const unsigned buffer, std::vector<unsigned>& where, std::vector<unsigned>& bndind, std::vector<unsigned> bndptr, const InMemoryContainer& inMemMap) {
+void Partitioner::ComputeBECut(const unsigned tid, const unsigned buffer, std::vector<unsigned>& where, std::vector<unsigned>& bndind, std::vector<unsigned> bndptr) {
 
 //TODO bndind and bndptr needs to be locked when used by more than one thread
 // do not need first flag now
-     IdType i, j, nbnd=0;
+/*     IdType i, j, nbnd=0;
 //     IdType *bndind, *bndptr;
-     unsigned src;
+
      bool first = 1;
      std::vector<unsigned> bndvert;     
 
-  for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {
-      src = it->first;
-      for (std::vector<unsigned>::const_iterator vit = it->second.begin(); vit != it->second.end(); ++vit){
-           bndvert.push_back(*vit);
-       }
+     for(IdType i=0; i<outBufMap[buffer].size(); i++) {
+         IdType src = outBufMap[buffer][i];
+
+         if (std::find(bndvert.begin(), bndvert.end(), src) == bndvert.end()){
+             bndvert.push_back(src);
+         }
    //       const std::vector<unsigned>& nbrs = i->second;
         //  unsigned max = *max_element(std::begin(nbrs), std::end(nbrs));
-  // }
+       }
      for(unsigned i=0; i<bndvert.size(); i++){
-         IdType dst = bndvert[i];
-           fprintf(stderr,"\nTID: %d, src :%d, dst: %d, buffer: %d", tid, src, dst, buffer); 
+           IdType src = bndvert[i];
+           fprintf(stderr,"\nTID: %d, src :%d, buffer: %d", tid, src, buffer); 
            fprintf(stderr,"\n"); 
- //       for (j=xadj[src]; j<xadj[src+1]; j++){
+        for (j=xadj[src]; j<xadj[src+1]; j++){
 
- //               IdType dst = adjncy[j];
-//            fprintf(stderr,"PECUT tid: %d, src: %d, j: %d, xadj[src+1]: %d, adjncy[j]: %d\n", tid, src, j,xadj[src+1], dst);
+                IdType dst = adjncy[j];
+            fprintf(stderr,"PECUT tid: %d, src: %d, j: %d, xadj[src+1]: %d, adjncy[j]: %d\n", tid, src, j,xadj[src+1], dst);
                  fprintf(stderr,"where[%d]: %d, where[%d]: %d\n", src, where[src], dst ,where[dst]);
          //    if(!(adjncy[j] > max)){
                  fprintf(stderr,"\nChecking if the where is same\n");
@@ -537,19 +561,17 @@ void Partitioner::ComputeBECut(const unsigned tid, const unsigned buffer, std::v
                    // dst = adjncy[j];
              fprintf(stderr,"\nBoundary Vertices tid: %d, dst: %d, nbnd: %d, bndptr: %d, first: %d\n", tid, dst, nbnd, bndptr[dst], first);
           // store the boundary vertices
-                    if(first){
                     BNDInsert(tid, nbnd, bndind, bndptr, dst, first);
                     first = 0;
-                    }
                  }
              // }
           }
- /*         if(xadj[src] == xadj[src+1]){
+*/ /*         if(xadj[src] == xadj[src+1]){
           // store the boundary vertices
              fprintf(stderr,"\nBoundary source: %d, cut: %d\n", src, cut);
              BNDInsert(cut, bndind, bndptr, src);
           }
-   */  }
+   *///  }
   	
 //     fprintf(stderr,"\nNbnd: %d\n", nbnd);
 //     fprintf(stderr,"\nnCuts[%d]: %d, MapSize: %d\n", buffer, nCuts[buffer], outBufMap[buffer].size());

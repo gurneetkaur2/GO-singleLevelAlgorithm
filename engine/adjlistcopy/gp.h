@@ -25,7 +25,7 @@ class GraphParts
     void init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
     void writeInit(const unsigned buffer);
-    void writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where, std::vector<unsigned>& whereDst);
+    unsigned writeBuf(const unsigned tid, const unsigned to, const unsigned from, unsigned k, unsigned* adjncy, std::vector<unsigned>& where, std::vector<unsigned>& whereDst, bool firstRep);
     bool read(const unsigned tid);
     void readInit(const unsigned buffer);
     void subtractRefineTimes(const unsigned tid, const double stime);
