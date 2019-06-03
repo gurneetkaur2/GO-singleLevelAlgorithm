@@ -13,7 +13,7 @@ PROTO_FLAGS := #-L /home/gkaur007/opt/lib
 PROTO_LIBS  := -lprotobuf 
 
 RM          := rm -rf
-OBJS        := edgeList.pb.o $(LIBPATH)/util.o kparts.o
+OBJS        := edgeList.pb.o recordtype.pb.o adjacencyList.pb.o $(LIBPATH)/util.o kparts.o
 #OBJS_ONE    := $(LIBPATH)/util.o main-one.o
 
 OPTS        := #from command line (eg: OPTS+=...)

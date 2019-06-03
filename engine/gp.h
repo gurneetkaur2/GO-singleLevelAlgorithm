@@ -25,10 +25,12 @@ class GraphParts
     void init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
     void writeInit(const unsigned buffer);
-    void writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where, std::vector<unsigned>& whereDst);
+    void writeBuf(const unsigned tid, const unsigned to, const unsigned from);
     bool read(const unsigned tid);
     void readInit(const unsigned buffer);
     void subtractRefineTimes(const unsigned tid, const double stime);
+    void ComputeBECut(const unsigned tid);
+    unsigned countTotalPECut(const unsigned tid);
 
     // Variables. Ideally, make these private and provide getters/setters.
     unsigned nVertices;
@@ -37,13 +39,14 @@ class GraphParts
     unsigned batchSize;  //Number of items in a batch
     unsigned kBItems;  //Top-k items to be fetched from in memory coarsen
     unsigned nParts;
+    IdType numLines;
     std::vector<double> mparts_times;
     std::vector<double> refine_times;
 
     std::vector<std::string> fileList;
 
     pthread_barrier_t barMParts;
-    pthread_barrier_t barRefine;
+    pthread_barrier_t barRead;
 
     friend void* doMParts(void* arg);
     friend void* doRefine(void* arg);
@@ -53,6 +56,7 @@ class GraphParts
     // Variables
     std::string inputFileName;
     size_t bytesPerFile;
+    size_t linesPerFile;
     Partitioner partitioner;
 
     //Methods

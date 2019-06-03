@@ -113,6 +113,17 @@ void printCallStack() {
   free(strings);
 }
 
+IdType getNumLines(std::string fileName){
+    IdType number_of_lines = 0;
+    std::string line;
+    std::ifstream myfile(fileName);
+
+    while (std::getline(myfile, line))
+        ++number_of_lines;
+
+    return number_of_lines;
+}
+
 /*void getListOfFiles(std::string directory, std::vector<std::string>* fileList)
 {
   DIR *dp;
