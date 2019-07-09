@@ -75,22 +75,31 @@ class Partitioner
     void gCopy(const unsigned tid);
     void gCopy(const unsigned tid, std::vector<unsigned>& gWhere);
     void sCopy(const unsigned tid, std::vector<unsigned>& bndind, std::vector<unsigned>& bndptr, std::vector<unsigned>& partitionBndind, std::vector<unsigned>& partitionBndPtr);
-    void BNDInsert(const unsigned tid, std::map<unsigned, unsigned>& bndind, unsigned i, bool first);
+    void BNDInsert(const unsigned tid, LookUpTable& bndind, unsigned i, bool first);
     void BNDDelete(const unsigned tid, unsigned n, std::vector<unsigned>& bndind, std::vector<unsigned>& bndptr, unsigned i);
 
     void readInit(const unsigned tid);
     bool read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted);
     bool read(const unsigned tid);    
-
+    void cread(const unsigned tid);    
+    bool refine(const unsigned tid);    
+//    bool refine(const unsigned tid, InMemoryContainer& refineMap);
+ 
     bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
     InMemoryReductionState initiateInMemoryReduce(unsigned tid);
  
-    void ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, std::map<unsigned, unsigned>& bndind, const InMemoryContainer& inMemMap);
+    void ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, LookUpTable& bndind, const InMemoryContainer& inMemMap);
     void ComputeBECut(const unsigned tid);
+    void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
     unsigned maxPECut(const unsigned tid);
+    unsigned maxBound(const unsigned tid, LookUpTable& bndind );
+    void refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
+    void refinePart(const unsigned tid, const unsigned hipart);
+    void refineInit(const unsigned tid);
 
     void releaseInMemStructures();
+    void releaseReadPartStructures();
     void shutdown();
     void flushBResidues(const unsigned tid);
     unsigned long long merge(InMemoryContainer& toMap, unsigned whichMap, unsigned tid, InMemoryContainerIterator& begin, InMemoryConstIterator end);
@@ -102,7 +111,11 @@ class Partitioner
     bool getWrittenToDisk() { return writtenToDisk; }
 
     InMemoryContainer* readBufMap;
-    std::map<unsigned, unsigned>* bndIndMap;
+    InMemoryContainer* refineMap;
+    IdType* totalCombined;
+    IdType* readNext; 
+    //std::map<unsigned, unsigned>* bndindmap;
+    LookUpTable* bndIndMap;
     LookUpTable* lookUpTable;
     std::set<unsigned>* fetchBatchIds;
 
@@ -111,6 +124,7 @@ class Partitioner
     std::vector<unsigned long long>* readNextInBatch;
     std::vector<bool>* batchesCompleted;
     std::vector<unsigned>* keysPerBatch;
+    std::map<unsigned, unsigned> mark;
   private:
    
     unsigned nVtces;   
@@ -132,6 +146,7 @@ class Partitioner
     IdType* totalKeysInFile;
     std::vector<pthread_mutex_t> locks;
     FileIO<RecordType> *io;  //GK
+    FileIO<RecordType> *cio;  //GK
     bool writtenToDisk;
 };
 
