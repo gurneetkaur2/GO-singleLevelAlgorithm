@@ -75,8 +75,6 @@ class Partitioner
     void gCopy(const unsigned tid);
     void gCopy(const unsigned tid, std::vector<unsigned>& gWhere);
     void sCopy(const unsigned tid, std::vector<unsigned>& bndind, std::vector<unsigned>& bndptr, std::vector<unsigned>& partitionBndind, std::vector<unsigned>& partitionBndPtr);
-    void BNDInsert(const unsigned tid, LookUpTable& bndind, unsigned i, bool first);
-    void BNDDelete(const unsigned tid, unsigned n, std::vector<unsigned>& bndind, std::vector<unsigned>& bndptr, unsigned i);
 
     void readInit(const unsigned tid);
     bool read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted);
@@ -94,9 +92,13 @@ class Partitioner
     unsigned countTotalPECut(const unsigned tid);
     unsigned maxPECut(const unsigned tid);
     unsigned maxBound(const unsigned tid, LookUpTable& bndind );
-    void refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
-    void refinePart(const unsigned tid, const unsigned hipart);
+    unsigned minBound(const unsigned tid, LookUpTable& bndind );
+    unsigned refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
+    unsigned refinePart(const unsigned tid, const unsigned hipart);
     void refineInit(const unsigned tid);
+
+    void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
+    void changeWhere(const unsigned tid, const unsigned hipart, std::vector<unsigned>& gwhere, const unsigned chVtx );
 
     void releaseInMemStructures();
     void releaseReadPartStructures();
@@ -109,6 +111,8 @@ class Partitioner
     }
 
     bool getWrittenToDisk() { return writtenToDisk; }
+    IdType getTotalPECuts(const unsigned tid) { return totalPECuts[tid]; }
+    IdType setTotalPECuts(const unsigned tid) { totalPECuts[tid] = 0; }
 
     InMemoryContainer* readBufMap;
     InMemoryContainer* refineMap;
@@ -118,13 +122,15 @@ class Partitioner
     LookUpTable* bndIndMap;
     LookUpTable* lookUpTable;
     std::set<unsigned>* fetchBatchIds;
+    std::set<unsigned> fetchPIds;
 
 //    std::vector<unsigned>* partitionBndInd;
 //    std::vector<unsigned>* partitionBndPtr;
     std::vector<unsigned long long>* readNextInBatch;
     std::vector<bool>* batchesCompleted;
     std::vector<unsigned>* keysPerBatch;
-    std::map<unsigned, unsigned> mark;
+    std::map<unsigned, unsigned> markMax;
+    std::map<unsigned, unsigned> markMin;
   private:
    
     unsigned nVtces;   
