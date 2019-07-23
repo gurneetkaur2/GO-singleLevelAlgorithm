@@ -18,7 +18,7 @@ class GraphParts
     virtual void* createMParts(const unsigned tid, const std::string& input) = 0; 
     virtual void* refine(const unsigned tid, const unsigned& rank, const std::vector<unsigned>& nbrs) = 0; 
     virtual void* beforeRefine(const unsigned tid) { };
-    virtual void* afterRefine(const unsigned tid) { };
+    virtual void* afterRefine(const unsigned tid, const unsigned nVertices) { };
          
     // System provided default; overridable by user
     virtual void run();
@@ -51,6 +51,7 @@ class GraphParts
 
     pthread_barrier_t barMParts;
     pthread_barrier_t barRead;
+    pthread_barrier_t barRefine;
 
     friend void* doMParts(void* arg);
     friend void* doCombine(void* arg);

@@ -186,7 +186,7 @@ void* doRefine(void* arg)
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
 
-	mr->beforeRefine(tid);
+//	mr->beforeRefine(tid);
 
 	//  fprintf(stderr, "\nDoRefine: Initializing read parameter\n");
 	mr->refineInit(tid);
@@ -222,12 +222,13 @@ void* doRefine(void* arg)
 			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
 		}
 
-		while(partitioner.fetchPIds.size() > 0){
+		while(partitioner.fetchPIds.size() > 1){
 //			unsigned tCuts = 0;
 			unsigned chVtx = -1;
 			unsigned hipart = -1;
 //			tCuts = mr->countTotalPECut(tid);
 //			fprintf(stderr,"\n----TID: %d, Total Edge cuts : %d\n", tid, tCuts);
+                        fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
 
@@ -239,12 +240,12 @@ void* doRefine(void* arg)
 					// TODO:: changed where but how to move the vertex to another on disk? or may be not?
 //				}
 //			}
-			fprintf(stderr,"\nFinished refining the %d partition", hipart);
+			fprintf(stderr,"\nFinished refining the partition %d", hipart);
                         }
 			// remove the refined partition
 			auto id = partitioner.fetchPIds.find(hipart);
 			partitioner.fetchPIds.erase(id);
-			fprintf(stderr,"\nRemoving %d from fetchPIds", *id);
+			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
 			// Calculate the next partition with max edgecuts
 	//		hipart = partitioner.maxPECut(tid);
 	//		fprintf(stderr,"\n----Next Partition with max cuts : %d\n", hipart);
@@ -253,7 +254,9 @@ void* doRefine(void* arg)
 
 	}
 	//Check if moving the vertex with max bnd value reduce the num of cuts in the parition and how much does it impact in the current partition also check the total edgecuts
-
+	  mr->afterRefine(tid, mr->nVertices);
+        fprintf(stderr,"\nFinished refining ......\n");
+  //      partitioner.printParts(tid);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
 
@@ -266,23 +269,50 @@ void* doRefine(void* arg)
 //---------------------------------------------
 void* doInMemoryRefine(void* arg) {
 
-	/*double time_refine = -getTimer();
+	double time_refine = -getTimer();
 
 	  unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
 	  GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	  Partitioner& partitioner = mr->partitioner;
 
 	  mr->beforeRefine(tid);
-	  InMemoryReductionState state = partitioner.initiateInMemoryReduce(tid); 
-	  InMemoryContainer record;
-	  while(partitioner.getNextMinKey(&state, &record)) {
-	  mr->refine(tid, record.begin()->first, record.begin()->second);
-	  record.clear();
-	  }
-	  mr->afterRefine(tid);
+	  mr->refineInit(tid);
+	  partitioner.initiateInMemoryRefine(tid); 
+ 
+ 	 fprintf(stderr,"\nREFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
+         partitioner.ComputeBECut(tid);
+	 partitioner.releaseInMemStructures();
+	pthread_barrier_wait(&(mr->barRefine));
+	// Count the total edge cuts and also check the partition with max edgecuts
+	if(tid == 0){
+
+		for (unsigned i = 0; i < mr->nThreads; i++){
+			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
+		}
+
+		while(partitioner.fetchPIds.size() > 1){
+			unsigned chVtx = -1;
+			unsigned hipart = -1;
+                        fprintf(stderr,"\nFinding Next partition to refine");
+			hipart = partitioner.maxPECut(tid);
+			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
+
+                        if(partitioner.bndIndMap[hipart].size() > 0){
+				chVtx = partitioner.refinePart(tid, hipart);
+			fprintf(stderr,"\nFinished refining the partition %d", hipart);
+                        }
+			// remove the refined partition
+			auto id = partitioner.fetchPIds.find(hipart);
+			partitioner.fetchPIds.erase(id);
+			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
+		}
+
+	}
+	//Check if moving the vertex with max bnd value reduce the num of cuts in the parition and how much does it impact in the current partition also check the total edgecuts
+	  mr->afterRefine(tid, mr->nVertices);
 	  time_refine += getTimer();
 	  mr->refine_times[tid] += time_refine;
-	 */
+	 
 	return NULL;
 }
 
@@ -315,19 +345,19 @@ void GraphParts::run()
 	//  parallelExecute(doCoarsen, this, nCoarseners);
 	//      fprintf(stderr,"\nGP.HPP before Running refiners");
 
-	/*  if(!partitioner.getWrittenToDisk()) {
+	 if(!partitioner.getWrittenToDisk()) {
 	    fprintf(stderr, "Running InMemoryRefiners\n");
-	    parallelExecute(doInMemoryRefine, this, nParts);
-	    partitioner.releaseInMemStructures();
+	    parallelExecute(doInMemoryRefine, this, nThreads);
+	  //  partitioner.releaseInMemStructures();
 	    } else {
-	 */    partitioner.releaseInMemStructures();
+	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
 	parallelExecute(doCombine, this, nThreads);
 
 	partitioner.releaseReadPartStructures();
 	fprintf(stderr, "\nRunning Refiners\n");
 	parallelExecute(doRefine, this, nThreads);
-	//  }
+	 }
 
 	fprintf(stderr, "Graph partitioned. Shutting down.\n");
 
@@ -395,6 +425,7 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 
 	pthread_barrier_init(&barMParts, NULL, nThreads);
 	pthread_barrier_init(&barRead, NULL, nThreads);
+	pthread_barrier_init(&barRefine, NULL, nThreads);
 }
 
 //--------------------------------------------  GK

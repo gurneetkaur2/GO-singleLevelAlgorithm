@@ -49,14 +49,14 @@ std::vector<uint64_t> localCombinedPairs;
 
 void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from);
 
-class InMemoryReductionState {
+/*class InMemoryReductionState {
   public:
   std::vector<InMemoryConstIterator > begins;
   std::vector<InMemoryConstIterator > ends;
 
   InMemoryReductionState(unsigned size) : begins(size), ends(size) { }
 };
-
+*/
 class Partitioner
 {
   public:
@@ -83,8 +83,8 @@ class Partitioner
     bool refine(const unsigned tid);    
 //    bool refine(const unsigned tid, InMemoryContainer& refineMap);
  
-    bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
-    InMemoryReductionState initiateInMemoryReduce(unsigned tid);
+  //  bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
+    void initiateInMemoryRefine(unsigned tid);
  
     void ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, LookUpTable& bndind, const InMemoryContainer& inMemMap);
     void ComputeBECut(const unsigned tid);
@@ -92,14 +92,15 @@ class Partitioner
     unsigned countTotalPECut(const unsigned tid);
     unsigned maxPECut(const unsigned tid);
     unsigned maxBound(const unsigned tid, LookUpTable& bndind );
-    unsigned minBound(const unsigned tid, LookUpTable& bndind );
+    unsigned minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart );
+    void deletebndvert(const unsigned tid, const unsigned hipart, std::map<unsigned, unsigned>& markMax );
     unsigned refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
     unsigned refinePart(const unsigned tid, const unsigned hipart);
     void refineInit(const unsigned tid);
 
-    void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
-    void changeWhere(const unsigned tid, const unsigned hipart, std::vector<unsigned>& gwhere, const unsigned chVtx );
-
+ //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
+    void changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx);
+//    void printParts(const unsigned tid);
     void releaseInMemStructures();
     void releaseReadPartStructures();
     void shutdown();

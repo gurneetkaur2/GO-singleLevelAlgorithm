@@ -522,18 +522,14 @@ bool Partitioner::read(const unsigned tid) {
 }
 
 //--------------------------------------------------
-InMemoryReductionState Partitioner::initiateInMemoryReduce(unsigned tid) {
-  InMemoryReductionState state(nRows); 
-/*  for(unsigned i=0; i<nRows; ++i) {
-    state.begins[i] = outBufMap[tid + nCols * i].begin();
-    state.ends[i] = outBufMap[tid + nCols * i].end();
-  }
-*/
-  return state;
+void Partitioner::initiateInMemoryRefine(unsigned tid) {
+
+     refineMap[tid].insert(outBufMap[tid].begin(), outBufMap[tid].end());
+
 }
 
 //--------------------------------------------------
-bool Partitioner::getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record) {
+//bool Partitioner::refineInMemory(const unsigned tid) {
 /*  std::vector<unsigned> minIds;
   unsigned minKey;
   bool found = false;
@@ -568,8 +564,8 @@ bool Partitioner::getNextMinKey(InMemoryReductionState* state, InMemoryContainer
     ++state->begins[*it];
   }
 */
-  return true;
-}
+ // return true;
+//}
 
 //--------------------------------------------------
 void Partitioner::ComputeBECut(const unsigned tid) {
@@ -618,7 +614,7 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
     		    totalPECuts[tid]++;
                    // dst = adjncy[j];
              fprintf(stderr,"\nBoundary Vertices tid: %d, dst: %d\n", tid, dst);
-          // store the boundary vertices
+          // store the boundary vertices along with their actual location
               bndind[dst].push_back(where[dst]); // TODO: should this be where[dst]?
      fprintf(stderr,"\nSize bndind[%d]: %d\n", dst, bndind[dst].size());
               //      first = 0;
@@ -691,7 +687,8 @@ unsigned Partitioner::countTotalPECut(const unsigned tid) {
 
 //--------------------------------------------------
 unsigned Partitioner::maxPECut(const unsigned tid) {
-      unsigned low = 0, hipart = -1; 
+      unsigned low = 0, hipart = -1;
+    fprintf(stderr,"\nMaxPECut fetchpids size %d", fetchPIds.size());
       //for(unsigned i=0; i<nCols; i++){
       for(auto i=fetchPIds.begin(); i != fetchPIds.end(); ++i){
           if(low < totalPECuts[*i]){
@@ -721,10 +718,10 @@ unsigned Partitioner::refinePart(const unsigned tid, const unsigned hipart, std:
 
   // in the partition with highest edge cuts, find the bnd vertex with max occurrence
   unsigned maxvtx = -1;
-  unsigned minvtx = -1;
+//  unsigned minvtx = -1;
   unsigned tCuts = countTotalPECut(tid);
   fprintf(stderr,"\n----TID: %d, Total Edge cuts : %d\n", tid, tCuts);
-  unsigned pCut = getTotalPECuts(hipart);
+  unsigned pCut = getTotalPECuts(hipart);  //total partition edge cuts
   std::vector<unsigned> boundpart {nCols};  // to keep track of partitions
   
   for (InMemoryConstIterator it = bndIndMap[hipart].begin(); it != bndIndMap[hipart].end(); ++it) {
@@ -736,55 +733,76 @@ unsigned Partitioner::refinePart(const unsigned tid, const unsigned hipart, std:
     maxvtx = maxBound(tid, bndIndMap[hipart]);
     fprintf(stderr," in partition %d \n", hipart);
       if(maxvtx != -1){
-         unsigned whereMax = gWhere[maxvtx];
-         unsigned epCut = getTotalPECuts(whereMax);
-         fprintf(stderr,"\nREFINEPART vertex %d has MaxECuts and is in partition %d ", maxvtx, whereMax);
+         unsigned whereMax = gWhere[maxvtx];  //where is the vertex with max boundary positions in this selected partition
+         unsigned epCut = getTotalPECuts(whereMax); // get total edgecuts of the partition where that vertex is
+         fprintf(stderr,"\nREFINEPART vertex %d is in partition %d which has total ECuts %d ", maxvtx, whereMax, epCut);
+     unsigned oldpreduction = -2;// set it to random negative value
    // Check the edgecuts in the partition where this Maxvertex is currently
-      unsigned maxPCut = getTotalPECuts(whereMax);
    // Get the vtx with min edgecuts in this partition
-      minvtx = minBound(tid, bndIndMap[whereMax]);
+        unsigned minvtx = minBound(tid, bndIndMap[whereMax], hipart);
       if(minvtx != -1){
 // move the above found vertex from the partition where it exists to the current partition(hipart) with max edgecuts and remove it from bndindMap
-     markMax[maxvtx] = gWhere[maxvtx];
      gWhere[maxvtx] = hipart;
-     markMin[maxvtx] = gWhere[minvtx];
      gWhere[minvtx] = whereMax;
-     fprintf(stderr,"\nREFINEPART AFTER Markmax[MaxVtx]: %d, where[maxvtx]: %d ", markMax[maxvtx], gWhere[maxvtx]);
-   fprintf(stderr,"\nREFINEPART AFTER MarkMin[MinVtx]: %d, where[minvtx]: %d ", markMin[minvtx], gWhere[minvtx]);
+     fprintf(stderr,"\nREFINEPART AFTER  where[maxvtx]: %d ", gWhere[maxvtx]);
+   fprintf(stderr,"\nREFINEPART AFTER  where[minvtx]: %d ", gWhere[minvtx]);
   //Iterate through the partition and recompute edge cuts after moving the vertex 
-     refineInit(hipart); refineInit(whereMax);
+     refineInit(hipart); refineInit(whereMax); bndIndMap[whereMax].clear(); bndIndMap[hipart].clear();
      cread(hipart); cread(whereMax);
    // Calculate the total and partition edgecuts after iterating through combined records
      unsigned oldTCuts = tCuts;
      tCuts = countTotalPECut(tid); 
      fprintf(stderr,"\nRefining partition %d next iteration and found max cuts: %d\n", hipart, tCuts);
-     unsigned newPCut = getTotalPECuts(hipart);
-     unsigned newEPCut = getTotalPECuts(whereMax);
-     unsigned diff = oldTCuts - tCuts;
-     unsigned reduction = (pCut - newPCuts) + (epCut - newEPCut) - 2;
-    if(oldTCuts < tCuts && newPCut < pCut){
-       fprintf(stderr,"\nMoving %d to %d", maxvtx, hipart);
-       changeWhere(tid, hipart, maxvtx);
-       setTotalPECuts(hipart);
-       pCut = newPCut;
-       epCut = newEPCut;
-    // TODO:: changed where but how to move the vertex to another on disk? or may be not?
+     unsigned newPCut = getTotalPECuts(hipart); //new total partition cuts
+     unsigned newEPCut = getTotalPECuts(whereMax);  //new total other partition cuts
+     unsigned diff = oldTCuts - tCuts;   //difference in total number of edgecuts
+     unsigned preduction = (pCut - newPCut) + (epCut - newEPCut) - 2;
+     if(preduction > oldpreduction){
+        markMax[maxvtx] = preduction;// mark the max and min vtces being swapped
+        markMin[minvtx] = preduction;
+       if(oldTCuts < tCuts){
+          fprintf(stderr,"\nMoving %d to %d", maxvtx, hipart);
+          fprintf(stderr,"\nMoving %d to %d", minvtx, whereMax);
+          changeWhere(tid, hipart, whereMax, gWhere, maxvtx, minvtx);
+          setTotalPECuts(hipart);
+          pCut = newPCut;
+          epCut = newEPCut;
+          oldpreduction = preduction;
+      }
+    }
+     else{
+         gWhere[maxvtx] = whereMax;
+         gWhere[minvtx] = hipart;
      }
    }
      else{
           fprintf(stderr,"\nNo Swap vertex from other partition ***** ");
+          bndIndMap[hipart].erase(maxvtx);
         }
    }
    else{
         fprintf(stderr,"\nPartition %d is refined ***** ", hipart);
+        bndIndMap[hipart].erase(maxvtx);
+        boundpart.clear();
       }
-      // Delete the boundary vertices and update again
-     fprintf(stderr,"\nBndInd has %d elements before erasing %d", bndIndMap[hipart].size(), maxvtx);
-      bndIndMap[hipart].clear();
-      fprintf(stderr,"\nBoundpart size: %d", boundpart.size());
+      // Delete the boundary vertices processed and update again
+      deletebndvert(tid, hipart, markMax);
+     fprintf(stderr,"\nBndInd has %d elements after iteration", bndIndMap[hipart].size());
+     if(boundpart.size() > 0){
       boundpart.erase(std::remove(boundpart.begin(), boundpart.end(), maxvtx), boundpart.end());
+      fprintf(stderr,"\nremoved %d from Boundpart size: %d", maxvtx, boundpart.size());
+    }
  }
  return maxvtx;
+}
+
+//--------------------------------------------------
+void Partitioner::deletebndvert(const unsigned tid, const unsigned hipart, std::map<unsigned, unsigned>& markMax ) {
+  for(auto it = markMax.begin(); it!= markMax.end(); ++it){
+     bndIndMap[hipart].erase(it->first);
+     fprintf(stderr,"\nDeleting %d from bndIndMap size %d", it->first, bndIndMap[hipart].size());
+  }
+
 }
 
 //--------------------------------------------------
@@ -804,15 +822,20 @@ return vtx_max;
 }
 
 //--------------------------------------------------
-unsigned Partitioner::minBound(const unsigned tid, LookUpTable& bndind ) {
+unsigned Partitioner::minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart ) {
 //TODO: Add a vertex which stores all the vertices with same number of edge cuts and return that vertex
 unsigned currentMin = 0;
 unsigned vtx_min = -1;
 for(auto it = bndind.cbegin(); it != bndind.cend(); ++it ) {
-    if (it ->second.size() < currentMin) {
-        vtx_min = it->first;
-        currentMin = it->second.size();
-    }
+    //const std::vector<unsigned>& lookwhere = it->second;
+   //If the the vtx_min belongs to the partition being refined (hipart)
+ //   if (std::find(lookwhere.begin(), lookwhere.end(), hipart) != lookwhere.end()){
+     // then consider it for swap
+      if (it ->second.size() < currentMin) {
+          vtx_min = it->first;
+          currentMin = it->second.size();
+      }
+  // }
 }
 fprintf(stderr, "\nMin Vertex %d occurs %d times as boundary vertex\n", vtx_min, currentMin);
 
@@ -912,13 +935,24 @@ while(true) {
 }
 
 //--------------------------------------------------
-void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx ) {
+//void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx ) {
 
-     changeWhere(tid, hipart, gWhere, chVtx);
-}
+//     changeWhere(tid, hipart, gWhere, chVtx);
+//}
   
 //--------------------------------------------------
-void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, std::vector<unsigned>& gwhere, const unsigned chVtx ) {
-
-     where[hipart].at(chVtx) = gwhere[hipart];
+void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx ) {
+     where[hipart].at(maxVtx) = gwhere[maxVtx];
+     where[whereMax].at(minVtx) = gwhere[minVtx];
 }
+
+//--------------------------------------------------
+//void Partitioner::printParts(const unsigned tid) {
+//       std::cout<<std::endl<<"Partition "<< tid <<std::endl;
+//  for(unsigned i = 0; i < nVtces; ++i){
+//     if(where[tid][i] != -1){
+//       std::cout<<"\t"<<i << "\t" << where[tid][i]<< std::endl;
+//     }
+//  }
+
+//}
