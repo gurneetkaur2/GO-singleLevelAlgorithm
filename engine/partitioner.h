@@ -81,7 +81,7 @@ class Partitioner
     bool read(const unsigned tid);    
     void cread(const unsigned tid);    
     bool refine(const unsigned tid);    
-//    bool refine(const unsigned tid, InMemoryContainer& refineMap);
+//    bool refine(const unsigned tid, const IdType& totalCombined);
  
   //  bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
     void initiateInMemoryRefine(unsigned tid);
@@ -94,8 +94,8 @@ class Partitioner
     unsigned maxBound(const unsigned tid, LookUpTable& bndind );
     unsigned minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart );
     void deletebndvert(const unsigned tid, const unsigned hipart, std::map<unsigned, unsigned>& markMax );
-    unsigned refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
-    unsigned refinePart(const unsigned tid, const unsigned hipart);
+    void refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
+    void refinePart(const unsigned tid, const unsigned hipart);
     void refineInit(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );

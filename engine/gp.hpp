@@ -224,7 +224,7 @@ void* doRefine(void* arg)
 
 		while(partitioner.fetchPIds.size() > 1){
 //			unsigned tCuts = 0;
-			unsigned chVtx = -1;
+//			unsigned chVtx = -1;
 			unsigned hipart = -1;
 //			tCuts = mr->countTotalPECut(tid);
 //			fprintf(stderr,"\n----TID: %d, Total Edge cuts : %d\n", tid, tCuts);
@@ -236,7 +236,7 @@ void* doRefine(void* arg)
 			// Keep refining the partition until it reaches min edgecuts and all the bnd vtx list is exhausted
 //			while(partitioner.bndIndMap[hipart].size() > 0){
                         if(partitioner.bndIndMap[hipart].size() > 0){
-				chVtx = partitioner.refinePart(tid, hipart);
+				partitioner.refinePart(tid, hipart);
 					// TODO:: changed where but how to move the vertex to another on disk? or may be not?
 //				}
 //			}
@@ -279,7 +279,7 @@ void* doInMemoryRefine(void* arg) {
 	  mr->refineInit(tid);
 	  partitioner.initiateInMemoryRefine(tid); 
  
- 	 fprintf(stderr,"\nREFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
+ 	 fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
          partitioner.ComputeBECut(tid);
 	 partitioner.releaseInMemStructures();
 	pthread_barrier_wait(&(mr->barRefine));
@@ -291,14 +291,13 @@ void* doInMemoryRefine(void* arg) {
 		}
 
 		while(partitioner.fetchPIds.size() > 1){
-			unsigned chVtx = -1;
 			unsigned hipart = -1;
                         fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
 
                         if(partitioner.bndIndMap[hipart].size() > 0){
-				chVtx = partitioner.refinePart(tid, hipart);
+				partitioner.refinePart(tid, hipart);
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
                         }
 			// remove the refined partition
