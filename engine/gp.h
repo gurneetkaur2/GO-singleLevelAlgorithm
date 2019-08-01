@@ -27,6 +27,7 @@ class GraphParts
     void writeInit(const unsigned buffer);
     void writeBuf(const unsigned tid, const unsigned to, const unsigned from);
     bool read(const unsigned tid);
+    void printParts(const unsigned tid, std::string outputPrefix);
     void readInit(const unsigned buffer);
     bool refine(const unsigned tid);
     void refineInit(const unsigned buffer);

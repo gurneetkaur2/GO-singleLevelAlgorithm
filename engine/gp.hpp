@@ -66,19 +66,7 @@ void* doMParts(void* arg)
 	while(std::getline(infile, line)) {
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line);     
-		/*        std::stringstream inputStream(line);
-			  unsigned to, from;
-			  inputStream >> to;
-		//             mr->writeBuf(tid, to, to);
-
-		while(inputStream >> from){
-		fprintf(stderr,"\nTID: %d picked TO: %zu FROM: %zu \n",tid, to, from);
-		mr->writeBuf(tid, to, from);
-		//       mr->writeBuf(tid, from, to);
-		}
-		// TODO         mr->writeBuf(tid, to, to);
-		//          bytesRead = line.length();        
-		 */          time_mparts += getTimer();
+	        time_mparts += getTimer();
 	}
 
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
@@ -131,8 +119,8 @@ void* doCombine(void* arg)
 				fprintf(stderr,"\ntid: %d, Key: %d", tid, fit->first);
 				//partitioner.totalCombined[tid]++;
 			}
-			partitioner.totalCombined[tid] += partitioner.readBufMap[tid].size();
-			fprintf(stderr,"\n-- tid: %d, totalCombined: %d, Size: %d\n", tid, partitioner.totalCombined[tid], partitioner.readBufMap[tid].size());
+	//		partitioner.totalCombined[tid] += partitioner.readBufMap[tid].size();
+			fprintf(stderr,"\n-- tid: %d, totalCombined Size: %d\n", tid, partitioner.readBufMap[tid].size());
 			//Write combined records to a new partition    
 			mr->cWrite(tid, partitioner.readBufMap[tid].size(), fit);
 			partitioner.readBufMap[tid].erase(partitioner.readBufMap[tid].begin(), fit);
@@ -160,8 +148,8 @@ void* doCombine(void* arg)
 			counter++;
 		}
 
-		partitioner.totalCombined[tid] += mr->kBItems;
-		fprintf(stderr,"\n-- tid: %d, totalCombined: %d\n", tid, partitioner.totalCombined[tid]);
+	//	partitioner.totalCombined[tid] += mr->kBItems;
+		fprintf(stderr,"\n-- tid: %d, totalCombined: %d\n", tid, partitioner.readBufMap[tid].size());
 		//Write combined records to a new partition    
 		mr->cWrite(tid, mr->kBItems, it);
 
@@ -186,59 +174,29 @@ void* doRefine(void* arg)
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
 
-//	mr->beforeRefine(tid);
-
-	//  fprintf(stderr, "\nDoRefine: Initializing read parameter\n");
 	mr->refineInit(tid);
 
 	partitioner.cread(tid);
-	/*while(true) {
-	//  fprintf(stderr, "\nDoRefine: Calling Read\n");
-	bool execLoop = mr->refine(tid);
-	fprintf(stderr, "\nExecloop is %d", execLoop);
-
-	if(execLoop == false) {
-	for(InMemoryConstIterator it = partitioner.refineMap[tid].begin(); it != partitioner.refineMap[tid].end(); ++it){
-	fprintf(stderr,"\nREFINE- tid: %d, Key: %d", tid, it->first);
-	//        mr->refine(tid, it->first, it->second);
-	mr->ComputeBECut(tid);
-	partitioner.refineMap[tid].erase(partitioner.refineMap[tid].begin(), it);
-
-	}
-	break;
-	}
-
-	// Read the kitems from infinimem and compute the edgecuts for that part
-	mr->ComputeBECut(tid);
-
-	partitioner.refineMap[tid].erase(partitioner.refineMap[tid].begin(), partitioner.refineMap[tid].end());
-	}
-	 */
-	pthread_barrier_wait(&(mr->barRead));
+	pthread_barrier_wait(&(mr->barRefine));
 	// Count the total edge cuts and also check the partition with max edgecuts
 	if(tid == 0){
 
 		for (unsigned i = 0; i < mr->nThreads; i++){
 			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
 		}
+        unsigned tCuts = partitioner.countTotalPECut(tid);
+        fprintf(stderr,"\nBefore refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 
 		while(partitioner.fetchPIds.size() > 1){
-//			unsigned tCuts = 0;
-//			unsigned chVtx = -1;
 			unsigned hipart = -1;
-//			tCuts = mr->countTotalPECut(tid);
-//			fprintf(stderr,"\n----TID: %d, Total Edge cuts : %d\n", tid, tCuts);
                         fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
 
-//			unsigned pCut = partitioner.getTotalPECuts(hipart);
 			// Keep refining the partition until it reaches min edgecuts and all the bnd vtx list is exhausted
-//			while(partitioner.bndIndMap[hipart].size() > 0){
-                        if(partitioner.bndIndMap[hipart].size() > 0){
-				partitioner.refinePart(tid, hipart);
-					// TODO:: changed where but how to move the vertex to another on disk? or may be not?
-//				}
+                        unsigned newtCuts = partitioner.countTotalPECut(tid);
+                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
+				partitioner.refinePart(tid, hipart, newtCuts);
 //			}
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
                         }
@@ -246,17 +204,13 @@ void* doRefine(void* arg)
 			auto id = partitioner.fetchPIds.find(hipart);
 			partitioner.fetchPIds.erase(id);
 			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
-			// Calculate the next partition with max edgecuts
-	//		hipart = partitioner.maxPECut(tid);
-	//		fprintf(stderr,"\n----Next Partition with max cuts : %d\n", hipart);
-			//  if(hipart < 0) break;
 		}
 
+        fprintf(stderr,"\nFinished refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+//        partitioner.printParts(tid);
 	}
-	//Check if moving the vertex with max bnd value reduce the num of cuts in the parition and how much does it impact in the current partition also check the total edgecuts
+	pthread_barrier_wait(&(mr->barRefine));
 	  mr->afterRefine(tid, mr->nVertices);
-        fprintf(stderr,"\nFinished refining ......\n");
-  //      partitioner.printParts(tid);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
 
@@ -290,14 +244,17 @@ void* doInMemoryRefine(void* arg) {
 			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
 		}
 
+        unsigned tCuts = partitioner.countTotalPECut(tid);
+        fprintf(stderr,"\nBefore refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 		while(partitioner.fetchPIds.size() > 1){
 			unsigned hipart = -1;
                         fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
 
-                        if(partitioner.bndIndMap[hipart].size() > 0){
-				partitioner.refinePart(tid, hipart);
+                        unsigned newtCuts = partitioner.countTotalPECut(tid);
+                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
+				partitioner.refinePart(tid, hipart, newtCuts);
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
                         }
 			// remove the refined partition
@@ -306,11 +263,14 @@ void* doInMemoryRefine(void* arg) {
 			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
 		}
 
+        fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+  //      partitioner.printParts(tid);
 	}
-	//Check if moving the vertex with max bnd value reduce the num of cuts in the parition and how much does it impact in the current partition also check the total edgecuts
+	pthread_barrier_wait(&(mr->barRefine));
 	  mr->afterRefine(tid, mr->nVertices);
 	  time_refine += getTimer();
 	  mr->refine_times[tid] += time_refine;
+	    fprintf(stderr, "\nRETURN InMemoryRefiners\n");
 	 
 	return NULL;
 }
@@ -348,6 +308,7 @@ void GraphParts::run()
 	    fprintf(stderr, "Running InMemoryRefiners\n");
 	    parallelExecute(doInMemoryRefine, this, nThreads);
 	  //  partitioner.releaseInMemStructures();
+	    fprintf(stderr, "\nSuccess !!!!!!!!!!!!\n");
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
@@ -362,7 +323,7 @@ void GraphParts::run()
 
 	fprintf(stderr, "--------------------------------------\n");
 
-	//parts.shutdown();
+	partitioner.shutdown();
 
 	std::cout << "------- Final Time ---------" << std::endl;
 	std::cout << " Total time : " << run_time << " (msec)" << std::endl;
@@ -442,6 +403,11 @@ void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned 
 //--------------------------------------------
 bool GraphParts::read(const unsigned tid) {
 	return partitioner.read(tid);
+}
+
+//--------------------------------------------
+void GraphParts::printParts(const unsigned tid, std::string outputPrefix) {
+	return partitioner.printParts(tid, outputPrefix);
 }
 
 //--------------------------------------------

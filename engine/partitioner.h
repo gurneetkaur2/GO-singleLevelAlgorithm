@@ -59,6 +59,7 @@ void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<
 */
 class Partitioner
 {
+
   public:
     void initg(unsigned nVertices, unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts);
 //    void coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const  unsigned int* mapSupRowstoRows);
@@ -94,13 +95,13 @@ class Partitioner
     unsigned maxBound(const unsigned tid, LookUpTable& bndind );
     unsigned minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart );
     void deletebndvert(const unsigned tid, const unsigned hipart, std::map<unsigned, unsigned>& markMax );
-    void refinePart(const unsigned tid, const unsigned hipart, std::vector<unsigned>& where);
-    void refinePart(const unsigned tid, const unsigned hipart);
+    void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& where);
+    void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts);
     void refineInit(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
     void changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx);
-//    void printParts(const unsigned tid);
+    void printParts(const unsigned tid, std::string outputPrefix);
     void releaseInMemStructures();
     void releaseReadPartStructures();
     void shutdown();
@@ -111,9 +112,14 @@ class Partitioner
          return (k>=0);
     }
 
+ //   thread_local std::ofstream ofile;
+ //   thread_local double stime;
+
     bool getWrittenToDisk() { return writtenToDisk; }
     IdType getTotalPECuts(const unsigned tid) { return totalPECuts[tid]; }
     IdType setTotalPECuts(const unsigned tid) { totalPECuts[tid] = 0; }
+   
+    pthread_barrier_t barRefinepart;
 
     InMemoryContainer* readBufMap;
     InMemoryContainer* refineMap;
