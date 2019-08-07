@@ -35,7 +35,6 @@ class GraphParts
     void ComputeBECut(const unsigned tid);
     void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
-    unsigned lineCount(const unsigned tid);
 
     // Variables. Ideally, make these private and provide getters/setters.
     unsigned nVertices;
@@ -45,6 +44,7 @@ class GraphParts
     unsigned kBItems;  //Top-k items to be fetched from in memory coarsen
     unsigned nParts;
     IdType numLines;
+    std::vector<unsigned> end_read;
     std::vector<double> mparts_times;
     std::vector<double> combine_times;
     std::vector<double> refine_times;

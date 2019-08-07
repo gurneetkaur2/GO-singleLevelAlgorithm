@@ -50,38 +50,24 @@ void* doMParts(void* arg)
 	assert(infile.is_open());
 	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
 	infile.seekg(tid*mr->bytesPerFile);
-       // static std::atomic<unsigned> startNum(tid*mr->linesPerThread+tid);
-//	infile.seekg(tid*mr->linesPerThread + tid);
-        unsigned lineId = tid*mr->linesPerThread + tid ;
-        if(tid == 0)
-           mr->linesPerThread = mr->lineCount(tid);
-
+        unsigned lineId = tid*mr->linesPerThread + tid ;//0, 4, 8
+        mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         unsigned threadCt = 0; // mr->linesPerThread;
-	//   std::vector<unsigned> where (mr->nVertices+1, -1);
-	//   std::vector<unsigned>* where;
-	//   std::vector<unsigned> whereDst (mr->nVertices+1, -1);    
 	fprintf(stderr, "Creating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
         
 	std::string line;
 
-	//std::getline(infile, line);
-	//  unsigned long long bytesRead = 0; 
-	// unsigned long long linesRead = 0; 
         if(tid > 0)
            infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-	//while(std::getline(infile, line) && bytesRead <= mr->bytesPerFile) {
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
                 fprintf(stderr,"\n ********** TID: %d, lineID %d \n", tid, lineId+1);
-      //     if((lineId++ ) <= mr->nVertices){
-           if(threadCt < mr->linesPerThread){
-        //        if(threadCt > 0){
+           if(threadCt < mr->end_read[tid]){
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, ++lineId);     
 	        time_mparts += getTimer();
                  threadCt++;
                fprintf(stderr,"\nTHreadCT %d ", threadCt);
-            // }
 	  }
           else
             break;
@@ -308,6 +294,7 @@ void GraphParts::run()
 	fprintf(stderr, "Partitioning input for Parallel Reads\n");
 	partitionInputForParallelReads();
 
+	end_read.resize(nThreads, 0.0);
 	mparts_times.resize(nThreads, 0.0);
 	combine_times.resize(nParts, 0.0);
 	refine_times.resize(nParts, 0.0);
@@ -421,11 +408,6 @@ void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned 
 //--------------------------------------------
 bool GraphParts::read(const unsigned tid) {
 	return partitioner.read(tid);
-}
-
-//--------------------------------------------
-unsigned GraphParts::lineCount(const unsigned tid) {
-	return (tid+1)*linesPerThread + (tid+1) ;
 }
 
 //--------------------------------------------
