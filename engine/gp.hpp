@@ -50,24 +50,42 @@ void* doMParts(void* arg)
 	assert(infile.is_open());
 	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
 	infile.seekg(tid*mr->bytesPerFile);
+       // static std::atomic<unsigned> startNum(tid*mr->linesPerThread+tid);
+//	infile.seekg(tid*mr->linesPerThread + tid);
+        unsigned lineId = tid*mr->linesPerThread + tid ;
+        if(tid == 0)
+           mr->linesPerThread = mr->lineCount(tid);
 
-	std::string line;
-
+        unsigned threadCt = 0; // mr->linesPerThread;
 	//   std::vector<unsigned> where (mr->nVertices+1, -1);
 	//   std::vector<unsigned>* where;
 	//   std::vector<unsigned> whereDst (mr->nVertices+1, -1);    
 	fprintf(stderr, "Creating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
+        
+	std::string line;
 
 	//std::getline(infile, line);
 	//  unsigned long long bytesRead = 0; 
 	// unsigned long long linesRead = 0; 
-
+        if(tid > 0)
+           infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	//while(std::getline(infile, line) && bytesRead <= mr->bytesPerFile) {
-	while(std::getline(infile, line)) {
+	while(std::getline(infile, line, '\n')){
+                //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
+                fprintf(stderr,"\n ********** TID: %d, lineID %d \n", tid, lineId+1);
+      //     if((lineId++ ) <= mr->nVertices){
+           if(threadCt < mr->linesPerThread){
+        //        if(threadCt > 0){
 		time_mparts -= getTimer();
-		mr->createMParts(tid, line);     
+		mr->createMParts(tid, line, ++lineId);     
 	        time_mparts += getTimer();
-	}
+                 threadCt++;
+               fprintf(stderr,"\nTHreadCT %d ", threadCt);
+            // }
+	  }
+          else
+            break;
+        }
 
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
 	//  fprintf(stderr, "thread %u waiting for others to finish work\n", tid);
@@ -348,11 +366,11 @@ void GraphParts::partitionInputForParallelReads() {
 	std::ifstream in(inputFileName.c_str(), std::ifstream::ate | std::ifstream::binary); assert(in.is_open());
 	size_t fileSizeInBytes = in.tellg();
 	fprintf(stderr, "fileSizeInBytes: %zu\n", fileSizeInBytes);
-	//  fprintf(stderr, "\nnumlines: %u\n", numLines);
+	//fprintf(stderr, "\nnumlines: %u\n", numLines);
 	in.close();
-	//fprintf(stderr,"\n NumLines: %zu", numLines);
-	//linesPerFile = numLines/nThreads + 1;
-	// fprintf(stderr,"\nLinesPerfile: %zu", linesPerFile);
+	fprintf(stderr,"\n NumLines: %zu", numLines);
+	linesPerThread = numLines/nThreads;
+	fprintf(stderr,"\nLinesPerThread: %zu", linesPerThread);
 	bytesPerFile = fileSizeInBytes/nThreads + 1; //fileSizeInBytes/nThreads + 1;
 }
 
@@ -403,6 +421,11 @@ void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned 
 //--------------------------------------------
 bool GraphParts::read(const unsigned tid) {
 	return partitioner.read(tid);
+}
+
+//--------------------------------------------
+unsigned GraphParts::lineCount(const unsigned tid) {
+	return (tid+1)*linesPerThread + (tid+1) ;
 }
 
 //--------------------------------------------

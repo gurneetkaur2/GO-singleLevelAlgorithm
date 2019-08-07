@@ -531,45 +531,6 @@ void Partitioner::initiateInMemoryRefine(unsigned tid) {
 }
 
 //--------------------------------------------------
-//bool Partitioner::refineInMemory(const unsigned tid) {
-/*  std::vector<unsigned> minIds;
-  unsigned minKey;
-  bool found = false;
-
-  for(unsigned i=0; i<nRows; ++i) {
-    if(state->begins[i] == state->ends[i])
-      continue;
-
-    if(!found) {
-      minKey = state->begins[i]->first;
-      minIds.push_back(i);
-      found = true;
-    } else {
-      if(state->begins[i]->first < minKey) {
-        minKey = state->begins[i]->first;
-        minIds.clear();
-        minIds.push_back(i);
-      } else if(state->begins[i]->first == minKey) {
-        minIds.push_back(i);
-      }
-    }
-  }
-
-  if(!found)
-    return false;
-
-  std::vector<unsigned>& values = (*record)[minKey];
-  for(std::vector<unsigned>::iterator it = minIds.begin(); it != minIds.end(); ++it) {
-    for(std::vector<unsigned>::const_iterator vit = state->begins[*it]->second.begin(); vit != state->begins[*it]->second.end(); ++vit) 
-      values.push_back(*vit);
-
-    ++state->begins[*it];
-  }
-*/
- // return true;
-//}
-
-//--------------------------------------------------
 void Partitioner::ComputeBECut(const unsigned tid) {
      ComputeBECut(tid, gWhere, bndIndMap[tid], refineMap[tid]);
 }
@@ -970,10 +931,11 @@ void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, const u
   static thread_local std::ofstream ofile;
  // static thread_local double stime;
 //--------------------------------------------------
-void Partitioner::printParts(const unsigned tid, std::string outputPrefix) {
+void Partitioner::printParts(const unsigned tid, std::string fileName) {
 //       std::cout<<std::endl<<"Partition "<< tid <<std::endl;
 //  std::string outputPrefix = "testing";
-  ofile.open(outputPrefix + std::to_string(tid));
+  ofile.open(fileName);
+  assert(ofile.is_open());
  // stime = 0.0;
   for(unsigned i = 0; i <= nVtces; ++i){
      if(gWhere[i] != -1 && gWhere[i] == tid){
@@ -984,5 +946,4 @@ void Partitioner::printParts(const unsigned tid, std::string outputPrefix) {
      }
   }
   ofile.close();
-  fprintf(stderr,"\nWritten to the file");
 }

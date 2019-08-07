@@ -15,7 +15,7 @@ void* doCoarsen(void* arg);
 class GraphParts
 {
   public:
-    virtual void* createMParts(const unsigned tid, const std::string& input) = 0; 
+    virtual void* createMParts(const unsigned tid, const std::string& input, const unsigned lineId) = 0; 
     virtual void* refine(const unsigned tid, const unsigned& rank, const std::vector<unsigned>& nbrs) = 0; 
     virtual void* beforeRefine(const unsigned tid) { };
     virtual void* afterRefine(const unsigned tid, const unsigned nVertices) { };
@@ -35,6 +35,7 @@ class GraphParts
     void ComputeBECut(const unsigned tid);
     void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
+    unsigned lineCount(const unsigned tid);
 
     // Variables. Ideally, make these private and provide getters/setters.
     unsigned nVertices;
@@ -63,7 +64,7 @@ class GraphParts
     // Variables
     std::string inputFileName;
     size_t bytesPerFile;
-    size_t linesPerFile;
+    size_t linesPerThread;
     Partitioner partitioner;
 
     //Methods
