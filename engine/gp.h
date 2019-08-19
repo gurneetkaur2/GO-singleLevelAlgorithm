@@ -15,17 +15,17 @@ void* doCoarsen(void* arg);
 class GraphParts
 {
   public:
-    virtual void* createMParts(const unsigned tid, const std::string& input, const unsigned lineId) = 0; 
+    virtual void* createMParts(const unsigned tid, const std::string& input, const unsigned lineId, const unsigned hiDegree) = 0; 
     virtual void* refine(const unsigned tid, const unsigned& rank, const std::vector<unsigned>& nbrs) = 0; 
     virtual void* beforeRefine(const unsigned tid) { };
     virtual void* afterRefine(const unsigned tid, const unsigned nVertices) { };
          
     // System provided default; overridable by user
     virtual void run();
-    void init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
+    void init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
     void writeInit(const unsigned buffer);
-    void writeBuf(const unsigned tid, const unsigned to, const unsigned from);
+    void writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree);
     bool read(const unsigned tid);
     void printParts(const unsigned tid, std::string outputPrefix);
     void readInit(const unsigned buffer);
@@ -39,6 +39,7 @@ class GraphParts
     // Variables. Ideally, make these private and provide getters/setters.
     unsigned nVertices;
     unsigned nEdges;
+    unsigned hDegree;
     unsigned nThreads;
     unsigned batchSize;  //Number of items in a batch
     unsigned kBItems;  //Top-k items to be fetched from in memory coarsen

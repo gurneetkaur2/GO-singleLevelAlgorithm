@@ -64,7 +64,7 @@ void* doMParts(void* arg)
                 fprintf(stderr,"\n ********** TID: %d, lineID %d \n", tid, lineId+1);
            if(threadCt < mr->end_read[tid]){
 		time_mparts -= getTimer();
-		mr->createMParts(tid, line, ++lineId);     
+		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
                  threadCt++;
                fprintf(stderr,"\nTHreadCT %d ", threadCt);
@@ -212,6 +212,7 @@ void* doRefine(void* arg)
 
         fprintf(stderr,"\nFinished refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 //        partitioner.printParts(tid);
+		mr->partitioner.gCopy(tid);
 	}
 	pthread_barrier_wait(&(mr->barRefine));
 	  mr->afterRefine(tid, mr->nVertices);
@@ -239,8 +240,8 @@ void* doInMemoryRefine(void* arg) {
  
  	 fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
          partitioner.ComputeBECut(tid);
-	 partitioner.releaseInMemStructures();
 	pthread_barrier_wait(&(mr->barRefine));
+	 partitioner.releaseInMemStructures();
 	// Count the total edge cuts and also check the partition with max edgecuts
 	if(tid == 0){
 
@@ -269,6 +270,7 @@ void* doInMemoryRefine(void* arg) {
 
         fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
   //      partitioner.printParts(tid);
+		mr->partitioner.gCopy(tid);
 	}
 	pthread_barrier_wait(&(mr->barRefine));
 	  mr->afterRefine(tid, mr->nVertices);
@@ -288,7 +290,7 @@ void GraphParts::run()
 	fprintf(stderr, "Init Graph partitioners in-Memory Buffers\n");
 
 	double run_time = -getTimer();
-	partitioner.initg(nVertices, nThreads, batchSize, kBItems, nParts); // GK 
+	partitioner.initg(nVertices, hDegree, nThreads, batchSize, kBItems, nParts); // GK 
 
 
 	fprintf(stderr, "Partitioning input for Parallel Reads\n");
@@ -362,7 +364,7 @@ void GraphParts::partitionInputForParallelReads() {
 }
 
 //--------------------------------------------
-void GraphParts::init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
+void GraphParts::init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
 
 	inputFileName = input;
 	std::cout << "Input file name: " << inputFileName << std::endl;
@@ -372,6 +374,7 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 	//nInMemParts and nParts are same
 	nVertices = nvertices;
 	nEdges = nedges;
+ 	hDegree = hdegree;
 	nThreads = nthreads;
 	nParts = nparts;
 	batchSize = bSize;
@@ -383,6 +386,7 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 
 	std::cout << "nVertices: " << nVertices << std::endl;
 	std::cout << "nEdges: " << nEdges << std::endl;
+	std::cout << "hDegree: " << hDegree << std::endl;
 	std::cout << "nThreads: " << nThreads << std::endl;
 	std::cout << "nParts: " << nParts << std::endl;
 	std::cout << "batchSize: " << batchSize << std::endl;
@@ -395,8 +399,8 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 
 //--------------------------------------------  GK
 //void GraphParts::coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const unsigned int* mapSupRowstoRows)
-void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned from){
-	partitioner.writeBuf(tid, to, from);
+void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree = 0){
+	partitioner.writeBuf(tid, to, from, hidegree);
 }
 
 /*void GraphParts::coarsen(const unsigned tid, graph_t *graph, graph_t *cgraph, unsigned CoarsenTo)
