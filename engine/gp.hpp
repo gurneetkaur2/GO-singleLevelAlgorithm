@@ -67,7 +67,7 @@ void* doMParts(void* arg)
 		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
                  threadCt++;
-               fprintf(stderr,"\nTHreadCT %d ", threadCt);
+               fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
 	  }
           else
             break;
@@ -241,9 +241,9 @@ void* doInMemoryRefine(void* arg) {
  	 fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
          partitioner.ComputeBECut(tid);
 	pthread_barrier_wait(&(mr->barRefine));
-	 partitioner.releaseInMemStructures();
 	// Count the total edge cuts and also check the partition with max edgecuts
 	if(tid == 0){
+	 partitioner.releaseInMemStructures();
 
 		for (unsigned i = 0; i < mr->nThreads; i++){
 			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
@@ -313,17 +313,17 @@ void GraphParts::run()
 
 	 if(!partitioner.getWrittenToDisk()) {
 	    fprintf(stderr, "Running InMemoryRefiners\n");
-	    parallelExecute(doInMemoryRefine, this, nThreads);
+	    parallelExecute(doInMemoryRefine, this, nParts);
 	  //  partitioner.releaseInMemStructures();
 	    fprintf(stderr, "\nSuccess !!!!!!!!!!!!\n");
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
-	parallelExecute(doCombine, this, nThreads);
+	parallelExecute(doCombine, this, nParts);
 
 	partitioner.releaseReadPartStructures();
 	fprintf(stderr, "\nRunning Refiners\n");
-	parallelExecute(doRefine, this, nThreads);
+	parallelExecute(doRefine, this, nParts);
 	 }
 
 	fprintf(stderr, "Graph partitioned. Shutting down.\n");

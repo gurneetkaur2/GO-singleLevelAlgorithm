@@ -44,14 +44,14 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
   totalCombined = new IdType[nCols];
   readNext = new IdType[nCols];
   //nReadKeys = new IdType[nBuffers];
-  nItems = new IdType[nRows * nCols];
+  nItems = new IdType[nCols];
   //nCuts = new IdType[nCols];
 //  nEdges = new IdType[nRows * nCols];
     where = new std::vector<unsigned>[nCols];
 //  partitionBndInd = new std::vector<unsigned>[nCols];
 //  partitionBndPtr = new std::vector<unsigned>[nCols];
   
-  outBufMap = new InMemoryContainer[nRows * nCols];
+  outBufMap = new InMemoryContainer[nCols];
   readBufMap = new InMemoryContainer[nCols];
   refineMap = new InMemoryContainer[nCols];
   bndIndMap = new LookUpTable[nCols];
@@ -64,13 +64,17 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
   
   for (unsigned i=0; i<nRows * nCols; ++i){ 
     nItems[i] = 0;
+    //nCuts[i] = 0;
+    //nEdges[i] = 0;
     }
 
+  //where = (IdType *) malloc((nVtces + 1) * sizeof(IdType));    
   for(unsigned i=0; i<nCols; ++i) {  
     pthread_mutex_t mutex;
     pthread_mutex_init(&mutex, NULL);
     locks.push_back(mutex);
     
+//    totalPECuts[i] = 0;
     totalKeysInFile[i] = 0;
   }
 
@@ -89,7 +93,7 @@ void Partitioner::releaseInMemStructures()
   for (unsigned i = 0; i < nCols; i++)
     pthread_mutex_destroy(&locks[i]);
 
-   for (unsigned i = 0; i < nRows * nCols; i++)
+   for (unsigned i = 0; i < nCols; i++)
     outBufMap[i].clear();
 
   delete[] nItems;
@@ -102,6 +106,10 @@ void Partitioner::releaseInMemStructures()
 //-------------------------------------------------
 void Partitioner::shutdown()
 {
+   for (unsigned i = 0; i < nCols; i++){
+//        partitionBndInd[i].clear();
+//        partitionBndPtr[i].clear();
+  }
 
   delete cio;
    for (unsigned i = 0; i < nCols; i++){
@@ -164,168 +172,50 @@ void Partitioner::writeInit(const unsigned tid) {
 //void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where){
 void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hIdSize = 0){
 
-    unsigned bufferId = hashKey(to) % nCols;
-    unsigned buffer = tid * nCols + bufferId; 
+    unsigned buffer = hashKey(to) % nCols; 
     if(hIdSize != 0){
       hIds.emplace(to, hIdSize); 
       // Put the records into different buffer randomly
-      unsigned bufferId = hashKey(from) % nCols; 
-      unsigned buffer = tid * nCols + bufferId; 
+      unsigned buffer = hashKey(from) % nCols; 
 // less chances of adjlist vertices being on boundary if they are hashed to the partition which has similar vertices as key; hence less edgecuts 
    }
 
-    if(where[tid].at(to) == -1){
-      where[tid].at(to) = bufferId;
-  }
 //  unsigned buffer = tid * nCols + bufferId;  
-    unsigned whereFrom = hashKey(from) % nCols; 
-    if(where[tid].at(from) == -1){
-      where[tid].at(from) = whereFrom;
+//   fprintf(stderr,"\nTID: %d assigning TO: %d Where: %d", tid, to, buffer); 
+    if(where[tid].at(to) == -1){
+      where[tid].at(to) = buffer;
   }
+
+  // if the vertex assigned a partition is not added already then add it
+//  if (std::find(whereDst.begin(), whereDst.end(), to) == whereDst.end()){
+//     fprintf(stderr,"\nAdding to: %d in whereDst\n", to); 
+//      whereDst.push_back(to);  //record all the vertices which have been assigned a partition avoiding duplicates
+//   }
 
   //fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
 
   if (outBufMap[buffer].size() >= batchSize) {
     fprintf(stderr,"\noutbufmap buffer %d full with %d records noItems:%d\n", buffer, outBufMap[buffer].size(), nItems[buffer]);
      
-    pthread_mutex_lock(&locks[bufferId]);
+//    sCopy(tid, bndind, bndptr, partitionBndInd[tid], partitionBndPtr[tid]);
+    pthread_mutex_lock(&locks[buffer]);
    
-    writeToInfinimem(bufferId, totalKeysInFile[buffer], outBufMap[buffer].size(), outBufMap[buffer]);
-    totalKeysInFile[bufferId] += nItems[buffer];
-    pthread_mutex_unlock(&locks[bufferId]);
+   // gCopy(tid, gWhere[buffer], where, whereDst);
+ 
+    writeToInfinimem(buffer, totalKeysInFile[buffer], outBufMap[buffer].size(), outBufMap[buffer]);
+    totalKeysInFile[buffer] += nItems[buffer];
+    pthread_mutex_unlock(&locks[buffer]);
 
+//     fprintf(stderr,"\ntotalPECuts[%d]: %d\n\n", buffer, totalPECuts[buffer]);
     outBufMap[buffer].clear();
     nItems[buffer] = 0;
+ //   nCuts[buffer] = 0;
+    //nEdges[buffer] = 0;
     writtenToDisk = true;
   }
 
   performWrite(tid, buffer, to, from);
  // fprintf(stderr,"total edges in buffer: %d\n", nEdges[buffer]);
-}
-
-//--------------------------------------------------
-void Partitioner::flushBResidues(const unsigned tid) {
-
-fprintf(stderr,"\nFlushing buffer %d residues\n", tid);
-if(tid >= nCols) 
-    return;
-
-  if(nRows == 1) {
-    writeToInfinimem(tid, totalKeysInFile[tid], static_cast<unsigned>(outBufMap[tid].size()), outBufMap[tid]);
-    outBufMap[tid].clear();
-    totalKeysInFile[tid] += nItems[tid];
-    nItems[tid] = 0;
-  }
-  else {
-    unsigned b1 = 0, b2 = 0;
-    InMemoryContainerIterator b2Iter, b2End;
-    unsigned long long b2Merged = 0;
-    bool findB1 = true, findB2 = true;
-    unsigned i = 0;
-    while(i < nRows - 1) {
-      if(findB1) {
-        b1 = (i * nCols) + tid;
-        findB1 = false;
-        ++i;
-      }
-      if(findB2) {
-        b2 = (i * nCols) + tid;
-        b2Iter = outBufMap[b2].begin();
-        b2End = outBufMap[b2].end();
-        b2Merged = 0;
-        findB2 = false;
-        ++i;
-      }
-
-      b2Merged += merge(outBufMap[b1], b1, tid, b2Iter, b2End);
-
-      if(outBufMap[b1].size() == 0) {
-        findB1 = true;
-      }
-      if(b2Iter == b2End) {
-        findB2 = true;
-      }
-    }
-
-    if(i == nRows - 1) {
-      if(findB1 && findB2) {
-        writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[i].size(), outBufMap[i]);
-        outBufMap[i].clear();
-        totalKeysInFile[tid] += nItems[i];
-        nItems[i] = 0;
-      }
-      else if(findB1 || findB2) {
-        if(findB1) {
-          b1 = (i * nCols) + tid;
-          findB1 = false;
-          ++i;
-        } else {
-          b2 = (i * nCols) + tid;
-          b2Iter = outBufMap[b2].begin();
-          b2End = outBufMap[b2].end();
-          b2Merged = 0;
-          findB2 = false;
-          ++i;
-        }  
-
-        b2Merged += merge(outBufMap[b1], b1, tid, b2Iter, b2End);
-        if(outBufMap[b1].size() == 0) {
-          if(b2Iter != b2End) {
-            bWriteToInfinimem(tid, totalKeysInFile[tid], outBufMap[b2].size() - b2Merged, b2Iter, b2End);
-            outBufMap[b2].clear();
-            totalKeysInFile[tid] += (nItems[b2] - b2Merged);
-            nItems[b2] = 0;
-          }
-        } 
-        if(b2Iter == b2End) {
-          if(outBufMap[b1].size() != 0) {
-            writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[b1].size(), outBufMap[b1]);
-            outBufMap[b1].clear();
-            totalKeysInFile[tid] += nItems[b1];
-            nItems[b1] = 0;
-          }
-        }
-      } else
-          assert(false);
-    } else if(i == nRows) {
-      if(outBufMap[b1].size() > 0) {
-        writeToInfinimem(tid, totalKeysInFile[tid], outBufMap[b1].size(), outBufMap[b1]);
-        outBufMap[b1].clear();
-        totalKeysInFile[tid] += nItems[b1];
-        nItems[b1] = 0;
-      } else {  
-        bWriteToInfinimem(tid, totalKeysInFile[tid], outBufMap[b2].size() - b2Merged, b2Iter, b2End);
-        outBufMap[b2].clear();
-        totalKeysInFile[tid] += (nItems[b2] - b2Merged);
-        nItems[b2] = 0;
-      }
-    } else
-      assert(false);
-  }
-}
-
-//--------------------------------------------------
-unsigned long long Partitioner::merge(InMemoryContainer& toMap, unsigned whichMap, unsigned tid, InMemoryContainerIterator& begin, InMemoryConstIterator end) {
-  unsigned long long ct = 0;
-  while(begin != end) {
-    if(toMap.size() >= batchSize) {
-      writeToInfinimem(tid, totalKeysInFile[tid], toMap.size(), toMap);
-      toMap.clear();
-      totalKeysInFile[tid] += nItems[whichMap];
-      nItems[whichMap] = 0; 
-      return ct;
-    }
-    InMemoryContainerIterator it = toMap.find(begin->first);
-    if(it != toMap.end())
-      combine(it->first, it->second, begin->second);
-    else {
-      toMap.emplace(begin->first, begin->second);
-      ++nItems[whichMap];
-    }
-    ++ct;
-    ++begin;
-  }
-  return ct;
 }
 
 //--------------------------------------------------
@@ -372,9 +262,7 @@ void Partitioner::writeToInfinimem(const unsigned buffer, const IdType startKey,
 
   }
     if (ct != noItems){
-  for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {              fprintf(stderr,"\n \n WTI- TID: %d,  Key: %d\n", buffer, it->first);
-     } 
-     fprintf(stderr,"\nBuffer: %d CT: %d noItems: %d InMemMap Size: %d\n", buffer, ct, noItems, inMemMap.size());
+     fprintf(stderr,"\nCT: %d noItems: %d InMemMap Size: %d\n", ct, noItems, inMemMap.size());
 }
   assert(ct == noItems);
 //      fprintf(stderr,"\nWRITING TO INFINIMEM start: %d\n", startKey); 
@@ -407,7 +295,7 @@ void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey
 }
 
 //--------------------------------------------------
-/*void Partitioner::flushBResidues(const unsigned tid) {
+void Partitioner::flushBResidues(const unsigned tid) {
 
   fprintf(stderr,"\nFlushing buffer residues tid: %d\n", tid);
      
@@ -422,7 +310,7 @@ void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey
 //  }
    
 }
-*/
+
 //--------------------------------------------------
 void Partitioner::readInit(const unsigned tid) {
   unsigned j=0;
@@ -497,10 +385,9 @@ bool Partitioner::read(const unsigned tid) {
 
 //--------------------------------------------------
 void Partitioner::initiateInMemoryRefine(unsigned tid) {
-// fprintf(stderr,"\nInitiating In-Memory refine TID %d\n", tid);
-   for(unsigned i=0; i<nRows; ++i) {
-     refineMap[tid].insert(outBufMap[tid + nCols * i].begin(), outBufMap[tid + nCols * i].end());
-   }
+
+     refineMap[tid].insert(outBufMap[tid].begin(), outBufMap[tid].end());
+
 }
 
 //--------------------------------------------------
@@ -515,13 +402,15 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
 //  pthread_mutex_lock(&locks[tid]);
 //  gCopy(tid);
 //  pthread_mutex_unlock(&locks[tid]);
-    fprintf(stderr,"\nInside ComputeBECUT TID %d -------\n", tid); 
-   //  unsigned pid = tid % nCols;
+    fprintf(stderr,"\nInside ComputeBECUT -------"); 
+     IdType i, j, nbnd=0;
+     unsigned pid = tid % nCols;
 //     IdType *bndind, *bndptr;
      unsigned src;
-    // bool first = 1;
+     bool first = 1;
      std::vector<unsigned> bndvert;     
 
+  //  fprintf(stderr,"\nBefore looping ComputeBECUT -------"); 
   for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {
       src = it->first;
       for (std::vector<unsigned>::const_iterator vit = it->second.begin(); vit != it->second.end(); ++vit){
@@ -529,22 +418,30 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
               bndvert.push_back(*vit);
          // }
        }
-         IdType ebnd=0;
+   //       const std::vector<unsigned>& nbrs = i->second;
+        //  unsigned max = *max_element(std::begin(nbrs), std::end(nbrs));
+  // }
+    //     fprintf(stderr,"ComputeCut- bndvert size: %d\n", bndvert.size());
      for(unsigned i=0; i<bndvert.size(); i++){
       //   fprintf(stderr,"ComputeCut- i: %d\n", i);
          IdType dst = bndvert[i];
         //   fprintf(stderr,"\nTID: %d, src :%d, dst: %d", tid, src, dst); 
         //   fprintf(stderr,"\n"); 
-                 fprintf(stderr,"where[%d]: %d, where[%d]: %d\n", src, where[src], dst ,where[dst]);
+ //       for (j=xadj[src]; j<xadj[src+1]; j++){
+
+ //               IdType dst = adjncy[j];
+//            fprintf(stderr,"PECUT tid: %d, src: %d, j: %d, xadj[src+1]: %d, adjncy[j]: %d\n", tid, src, j,xadj[src+1], dst);
+          //       fprintf(stderr,"where[%d]: %d, where[%d]: %d\n", src, where[src], dst ,where[dst]);
+         //    if(!(adjncy[j] > max)){
                  if( where[dst] != -1 && where[src] != where[dst] ) {
                //  if( where[src] != where[dst] ) {
             //        fprintf(stderr,"Edge CUT tid: %d\n", tid);
-                    ebnd++;
+                    nbnd++;
     		    totalPECuts[tid]++;
                    // dst = adjncy[j];
           //   fprintf(stderr,"\nBoundary Vertices tid: %d, dst: %d\n", tid, dst);
           // store the boundary vertices along with their actual location
-              bndind[dst].push_back(src); // TODO: should this be where[dst]?
+              bndind[dst].push_back(where[dst]); // TODO: should this be where[dst]?
      fprintf(stderr,"\nSize bndind[%d]: %d\n", dst, bndind[dst].size());
               //      first = 0;
               //      }
@@ -552,8 +449,13 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
              // }
           }
  /*         if(xadj[src] == xadj[src+1]){
+          // store the boundary vertices
+             fprintf(stderr,"\nBoundary source: %d, cut: %d\n", src, cut);
+             BNDInsert(cut, bndind, bndptr, src);
+          }
   */	bndvert.clear();
      }
+//     fprintf(stderr,"\nNbnd: %d\n", nbnd);
      fprintf(stderr,"\ntPECuts[%d]: %d\n", tid, totalPECuts[tid]);
 
 }
@@ -576,7 +478,7 @@ void Partitioner::gCopy(const unsigned tid, std::vector<unsigned>& gWhere){
       bool first = 1;
       for(unsigned i=0; i<nCols; ++i){
          for(unsigned j=0; j<=nVtces; ++j){
-             if(first){  // All Values of first thread will be copied
+             if(first){
 //         fprintf(stderr,"\nwhere[%d][%d]: %d,", i, j, where[i][j]);
                 gWhere[j] = where[i][j];
              }
@@ -585,7 +487,7 @@ void Partitioner::gCopy(const unsigned tid, std::vector<unsigned>& gWhere){
                    gWhere[j] = where[i][j];
                }
             }
-  //       fprintf(stderr,"\nGWHERE[%d]: %d", j, gWhere[j]);
+   //      fprintf(stderr,"\nGWHERE[%d]: %d", j, gWhere[j]);
          }
          first = 0;
      }
@@ -882,7 +784,7 @@ while(true) {
    else{
        execLoop = refine(tid);
     }
-    fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
+    fprintf(stderr, "\nExecloop is %d", execLoop);
 
     if(execLoop == false) {
     //  for(InMemoryConstIterator it = refineMap[tid].begin(); it != refineMap[tid].end(); ++it){
