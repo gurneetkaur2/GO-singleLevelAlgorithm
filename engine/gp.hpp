@@ -179,7 +179,6 @@ void* doRefine(void* arg)
 	Partitioner& partitioner = mr->partitioner;
 
 	mr->refineInit(tid);
-
 	partitioner.cread(tid);
 	pthread_barrier_wait(&(mr->barRefine));
 	// Count the total edge cuts and also check the partition with max edgecuts
@@ -199,11 +198,11 @@ void* doRefine(void* arg)
 
 			// Keep refining the partition until it reaches min edgecuts and all the bnd vtx list is exhausted
                         unsigned newtCuts = partitioner.countTotalPECut(tid);
-                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
+//                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
 				partitioner.refinePart(tid, hipart, newtCuts);
 //			}
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
-                        }
+  //                      }
 			// remove the refined partition
 			auto id = partitioner.fetchPIds.find(hipart);
 			partitioner.fetchPIds.erase(id);
@@ -237,6 +236,7 @@ void* doInMemoryRefine(void* arg) {
 	  mr->beforeRefine(tid);
 	  mr->refineInit(tid);
 	  partitioner.initiateInMemoryRefine(tid); 
+         partitioner.addDVals(tid);
  
  	 fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
          partitioner.ComputeBECut(tid);
@@ -258,10 +258,8 @@ void* doInMemoryRefine(void* arg) {
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
 
                         unsigned newtCuts = partitioner.countTotalPECut(tid);
-                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
 				partitioner.refinePart(tid, hipart, newtCuts);
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
-                        }
 			// remove the refined partition
 			auto id = partitioner.fetchPIds.find(hipart);
 			partitioner.fetchPIds.erase(id);

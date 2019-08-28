@@ -37,6 +37,7 @@ typedef std::map<unsigned, std::vector<unsigned> > InMemoryContainer;
 typedef InMemoryContainer::iterator InMemoryContainerIterator; 
 typedef InMemoryContainer::const_iterator InMemoryConstIterator;
 typedef std::map<unsigned, std::vector<unsigned> > LookUpTable;
+typedef std::map<unsigned, unsigned > InMemTable;
 typedef double real_t;
     std::vector<unsigned> gWhere;
 
@@ -86,6 +87,7 @@ class Partitioner
  
   //  bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
     void initiateInMemoryRefine(unsigned tid);
+    void addDVals(const unsigned tid);
  
     void ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, LookUpTable& bndind, const InMemoryContainer& inMemMap);
     void ComputeBECut(const unsigned tid);
@@ -98,6 +100,9 @@ class Partitioner
     void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& where);
     void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts);
     void refineInit(const unsigned tid);
+    void computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax);
+    void computeGain(const unsigned tid, const unsigned hipart, const unsigned maxvtx, const unsigned whereMax);
+     unsigned findMaxGain(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
     void changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx);
@@ -116,6 +121,7 @@ class Partitioner
  //   thread_local double stime;
 
     bool getWrittenToDisk() { return writtenToDisk; }
+    bool getPartRefine() { return partRefine; }
     IdType getTotalPECuts(const unsigned tid) { return totalPECuts[tid]; }
     IdType setTotalPECuts(const unsigned tid) { totalPECuts[tid] = 0; }
    
@@ -128,6 +134,9 @@ class Partitioner
     //std::map<unsigned, unsigned>* bndindmap;
     LookUpTable* bndIndMap;
     LookUpTable* lookUpTable;
+    InMemTable* dTable;
+    InMemTable gainTable;
+
     std::set<unsigned>* fetchBatchIds;
     std::set<unsigned> fetchPIds;
     std::map<unsigned, unsigned> hIds;
@@ -163,6 +172,7 @@ class Partitioner
     FileIO<RecordType> *io;  //GK
     FileIO<RecordType> *cio;  //GK
     bool writtenToDisk;
+    bool partRefine;
 };
 
 #endif // __PARTITIONER_H__
