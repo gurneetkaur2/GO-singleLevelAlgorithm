@@ -51,6 +51,7 @@ void* doMParts(void* arg)
 	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
 	infile.seekg(tid*mr->bytesPerFile);
         unsigned lineId = tid*mr->linesPerThread + tid ;//0, 4, 8
+	//infile.seekg(tid*lineId, infile.beg);
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         unsigned threadCt = 0; // mr->linesPerThread;
 	fprintf(stderr, "Creating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
@@ -61,10 +62,11 @@ void* doMParts(void* arg)
            infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-                fprintf(stderr,"\n ********** TID: %d, lineID %d \n", tid, lineId+1);
+                //fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
+                fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId, mr->end_read[tid]);
            if(threadCt < mr->end_read[tid]){
 		time_mparts -= getTimer();
-		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
+		mr->createMParts(tid, line, lineId++, mr->hDegree);     
 	        time_mparts += getTimer();
                  threadCt++;
                fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
@@ -195,7 +197,7 @@ void* doRefine(void* arg)
                         fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
-
+                        partitioner.gainTable.clear();
 			// Keep refining the partition until it reaches min edgecuts and all the bnd vtx list is exhausted
                         unsigned newtCuts = partitioner.countTotalPECut(tid);
 //                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
@@ -256,6 +258,7 @@ void* doInMemoryRefine(void* arg) {
                         fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
 			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
+                        partitioner.gainTable.clear();
 
                         unsigned newtCuts = partitioner.countTotalPECut(tid);
 				partitioner.refinePart(tid, hipart, newtCuts);

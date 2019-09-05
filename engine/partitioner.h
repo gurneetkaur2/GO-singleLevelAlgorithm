@@ -96,12 +96,13 @@ class Partitioner
     unsigned maxPECut(const unsigned tid);
     unsigned maxBound(const unsigned tid, LookUpTable& bndind );
     unsigned minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart );
-    void deletebndvert(const unsigned tid, const unsigned hipart, std::map<unsigned, unsigned>& markMax );
-    void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& where);
+    void deletebndvert(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax );
+    void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& where, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin);
     void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts);
     void refineInit(const unsigned tid);
     void computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax);
-    void computeGain(const unsigned tid, const unsigned hipart, const unsigned maxvtx, const unsigned whereMax);
+    void updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst);
+    unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin);
      unsigned findMaxGain(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
