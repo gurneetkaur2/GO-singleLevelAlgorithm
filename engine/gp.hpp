@@ -49,17 +49,23 @@ void* doMParts(void* arg)
 	std::ifstream infile(mr->inputFileName.c_str()); 
 	assert(infile.is_open());
 	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
-	infile.seekg(tid*mr->bytesPerFile);
-        unsigned lineId = tid*mr->linesPerThread + tid ;//0, 4, 8
+	infile.seekg(std::ios::beg); //need this for Tid = 0
+        unsigned lineId = tid*mr->linesPerThread + 1;//0, 4, 8
 	//infile.seekg(tid*lineId, infile.beg);
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
+        //mr->end_read[tid] = (tid+1)*mr->linesPerThread; //4, 7, 9
         unsigned threadCt = 0; // mr->linesPerThread;
 	fprintf(stderr, "Creating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
         
 	std::string line;
-
-        if(tid > 0)
-           infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        
+        if(tid > 0){
+        //   infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	   infile.seekg(std::ios::beg);
+    	    for(int i=0; i < lineId - 1; ++i){  //remove -1 if starting from 0
+        	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+            }
+        }
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
                 //fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
@@ -179,7 +185,6 @@ void* doRefine(void* arg)
 	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
-
 	mr->refineInit(tid);
 	partitioner.cread(tid);
 	pthread_barrier_wait(&(mr->barRefine));
@@ -211,11 +216,13 @@ void* doRefine(void* arg)
 			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
 		}
 
-        fprintf(stderr,"\nFinished refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 //        partitioner.printParts(tid);
 		mr->partitioner.gCopy(tid);
 	}
+        partitioner.cread(tid);
+        fprintf(stderr,"\nFinished refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	pthread_barrier_wait(&(mr->barRefine));
+         if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
@@ -269,15 +276,17 @@ void* doInMemoryRefine(void* arg) {
 			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
 		}
 
-        fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
   //      partitioner.printParts(tid);
 		mr->partitioner.gCopy(tid);
 	}
+        
+         partitioner.ComputeBECut(tid);
+        fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	pthread_barrier_wait(&(mr->barRefine));
+         if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
 	  time_refine += getTimer();
 	  mr->refine_times[tid] += time_refine;
-	    fprintf(stderr, "\nRETURN InMemoryRefiners\n");
 	 
 	return NULL;
 }

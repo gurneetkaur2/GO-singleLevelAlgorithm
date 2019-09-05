@@ -598,14 +598,6 @@ void Partitioner::gCopy(const unsigned tid, std::vector<unsigned>& gWhere){
 }
 
 //--------------------------------------------------
-void Partitioner::sCopy(const unsigned tid, std::vector<unsigned>& bndind, std::vector<unsigned>& bndptr, std::vector<unsigned>& partitionBndInd, std::vector<unsigned>& partitionBndPtr){
-      for(unsigned i=0; i<nVtces; ++i){
-         partitionBndInd.at(i) = bndind[i];
-         partitionBndPtr.at(i) = bndptr[i];
-     }
-}
-
-//--------------------------------------------------
 unsigned Partitioner::countTotalPECut(const unsigned tid) {
       totalCuts = 0;
       //for(unsigned i=0; i<nCols; i++){
@@ -626,7 +618,7 @@ unsigned Partitioner::maxPECut(const unsigned tid) {
              hipart = *i;
           }
       }
-   fprintf(stderr,"\n Partition: %d has max cuts: %d", hipart, totalPECuts[hipart]);
+   fprintf(stderr,"\n Partition: %d has max cuts: %d", hipart, totalPECuts[hipart]/2);
    return hipart;
 }
 
@@ -657,7 +649,6 @@ void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const u
 		
              unsigned connect = conDst - 1;
             fprintf(stderr,"\nSRC: %d DST: %d vtx: %d CONNECT: %d ", src, dst, *vit, connect);
-             fprintf(stderr,"\n vtx %d bndary size: %d ", bndIndMap[hipart][*vit].size());
         	unsigned currval = dTable[whereMax].at(*vit);    
              dTable[whereMax].at(*vit) = currval + 2 * connect;
  
@@ -774,6 +765,7 @@ return -1;
 void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin) {
 //Check if moving the vertex with max bnd value reduce the num of cuts in the parition and how much does it impact in the current partition also check the total edgecuts
   unsigned invalidmoves = 0;
+  partRefine = false; 
   // in the partition with highest edge cuts, find the bnd vertex with max occurrence
   unsigned maxvtx = -1, whereMax, vtx1;
 //  unsigned minvtx = -1;
@@ -794,32 +786,10 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
          fprintf(stderr,"\nREFINEPART Max vertex %d belongs to partition %d ", maxvtx, whereMax);
    if(getWrittenToDisk()){ 
    partRefine = true; 
-   refineInit(hipart); 
-   while(true){
-   bool execLoop1 = refine(hipart);
-    if (execLoop1 == 0){
-       fprintf(stderr,"\nRefinePart Read all records - RefineMap %d size: %d \n", hipart, refineMap[hipart].size());
-       break;
-     }
-   }
-	refineInit(whereMax);
-   while(true){
-       bool execLoop2 = refine(whereMax);
-       if(execLoop2 == 0){
-       fprintf(stderr,"\nRefinePart Read all records - RefineMap %d size: %d \n", whereMax, refineMap[whereMax].size());
-       break;
-       }
-   }
-  //     else
- //	fprintf(stderr,"\nAll PART %d records do not fit in memory!!! \n", whereMax);
- //  } 
-   //else{
- //	fprintf(stderr,"\nAll PART %d records do not fit in memory!!! \n", hipart);
- //  }
-}
+   refineInit(hipart); cread(hipart); 
+   refineInit(whereMax); cread(whereMax);
+  }
        // compute dVals for boundary vertices in both the selected partitions
- //  fprintf(stderr,"\nDtable hipart %d size %d i, bndInd Size %d " , hipart, dTable[hipart].size(), bndIndMap[hipart].size());
- //  fprintf(stderr,"\nDtable whereMax %d size %d bndINd Size %d " , whereMax, dTable[whereMax].size(), bndIndMap[whereMax].size());
        computeDVals(tid, hipart, whereMax); computeDVals(tid, whereMax, hipart);
 
  // Loop through all the boundary vertices in the selected partition (hipart)
@@ -834,7 +804,6 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
           bndIndMap[whereMax].erase(markMax.at(vtx1));
         fprintf(stderr,"\nREMOVED vtx %d from part %d bndIndMap size %d ", markMax.at(vtx1), whereMax, bndIndMap[whereMax].size());
           gainTable.clear();
-  // }
      
    fprintf(stderr,"\nDtable hipart %d size %d " , hipart, dTable[hipart].size());
    fprintf(stderr,"\nDtable whereMax %d size %d " , whereMax, dTable[whereMax].size());
@@ -854,14 +823,19 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
          unsigned vtx2 = it->second;
          gWhere.at(vtx1) = whereMax;
          gWhere.at(vtx2) = hipart;
-     fprintf(stderr,"\nREFINEPART AFTER  where[%d]: %d ", vtx1, gWhere.at(vtx1));
-   fprintf(stderr,"\nREFINEPART AFTER  where[%d]: %d ", vtx2, gWhere.at(vtx2));
           fprintf(stderr,"\nMoving %d to %d from %d ", vtx1, whereMax, hipart);
           fprintf(stderr,"\nMoving %d to %d from %d ", vtx2, hipart, whereMax);
           changeWhere(tid, hipart, whereMax, gWhere, vtx1, vtx2);
+     fprintf(stderr,"\nREFINEPART AFTER  where[%d]: %d ", vtx1, gWhere.at(vtx1));
+   fprintf(stderr,"\nREFINEPART AFTER  where[%d]: %d ", vtx2, gWhere.at(vtx2));
         }
         bndIndMap[hipart].clear();
         boundpart.clear();
+        markMax.clear();
+        markMin.clear();
+        dTable->clear();
+        if(getWrittenToDisk())
+	   refineMap->clear();
       }
   }
       // Delete the boundary vertices processed and update again
@@ -882,6 +856,11 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
         fprintf(stderr,"\nPartition %d is refined ***** ", hipart);
         bndIndMap[hipart].clear();
         boundpart.clear();
+        markMax.clear();
+        markMin.clear();
+        dTable->clear();
+        if(getWrittenToDisk())
+	   refineMap->clear();
       }
 }
 //--------------------------------------------------
@@ -1051,7 +1030,7 @@ while(true) {
     //  for(InMemoryConstIterator it = refineMap[tid].begin(); it != refineMap[tid].end(); ++it){
     //     fprintf(stderr,"\nCREAD- tid: %d, Computing edgecuts with Map Size %d", tid, refineMap[tid].size());
          ComputeBECut(tid);
-       if(getWrittenToDisk()){
+       if(getWrittenToDisk() && !getPartRefine()){
          refineMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
       }
        break;
@@ -1061,6 +1040,7 @@ while(true) {
     ComputeBECut(tid);
 
  fprintf(stderr,"\nCREAD - RefineMap %d size: %d\n", tid, refineMap[tid].size());
+  if(!getPartRefine())
     refineMap[tid].erase(refineMap[tid].begin(), refineMap[tid].end());
   }
 
@@ -1091,7 +1071,7 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
   assert(ofile.is_open());
  // stime = 0.0;
   for(unsigned i = 0; i <= nVtces; ++i){
-     if(gWhere[i] != -1 && gWhere[i] == tid){
+     if(gWhere[i] != -1 ){ //&& gWhere[i] == tid){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){
        std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
    //    stime -= getTimer();
