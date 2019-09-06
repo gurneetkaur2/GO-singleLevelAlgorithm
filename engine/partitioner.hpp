@@ -394,6 +394,7 @@ void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey
   RecordType* records = new RecordType[noItems]; 
   unsigned ct = 0;
 
+     fprintf(stderr,"\n BWTI- TID: %d, startKey: %d ", buffer, startKey); 
   for (InMemoryConstIterator it = begin; it != end; ++it) {
      records[ct].set_rank(it->first);
   //    fprintf(stderr,"\n BWTI- TID: %d, startKey: %d, Key: %d\t, Values: ", buffer, startKey, it->first); 
@@ -407,7 +408,7 @@ void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey
   }
 
   assert(ct == noItems);
-  cio->file_set_batch(buffer, startKey, noItems, records);
+  io->file_set_batch(buffer, startKey, noItems, records);
  delete[] records;
 }
 
@@ -628,7 +629,6 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
 //--------------------------------------------------
 void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst){
 //Go through adjacency (boundary) vertices of the masked vertices and update their DVals
-  //fprintf(stderr,"\nUPDVAL SRC: %d, DST: %d\n", src, dst);
   auto it_map = refineMap[hipart].find(src);
   for (auto vit = it_map->second.begin(); vit != it_map->second.end(); ++vit) {
     //   unsigned adjvtx = *vit;
@@ -646,7 +646,7 @@ void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const u
               conDst = 1;
 		
              unsigned connect = conDst - 1;
-            fprintf(stderr,"\nSRC: %d DST: %d vtx: %d CONNECT: %d ", src, dst, *vit, connect);
+  //          fprintf(stderr,"\nSRC: %d DST: %d vtx: %d CONNECT: %d ", src, dst, *vit, connect);
         	unsigned currval = dTable[whereMax].at(*vit);    
              dTable[whereMax].at(*vit) = currval + 2 * connect;
  
@@ -665,7 +665,6 @@ void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const u
 //--------------------------------------------------
 void Partitioner::computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax) {
 //Go through each key in the selected partition to be refined and update the DVals
-//  fprintf(stderr,"\nDVAL HIPART: %d, whereMax: %d\n", hipart, whereMax);
   for (auto it = dTable[hipart].begin(); it != dTable[hipart].end(); ++it) {
       unsigned src = it->first;
 //      std::map<unsigned, unsigned>::const_iterator it_max = markMax.find(src);
@@ -696,7 +695,6 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
   int  maxG = 0;
   int maxvtx = -1, minvtx = -1;
   unsigned vtx_ind = -1;
-//fprintf(stderr,"\nCOMPUTING Gain hipart:%d, whereMax: %d\n", hipart, whereMax);
 //Go through each key in the selected partition to be refined and update the gain 
   for (auto it = dTable[hipart].begin(); it != dTable[hipart].end(); ++it) {
       unsigned src = it->first; //maxvtx;
@@ -784,11 +782,27 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
       if(maxvtx != -1 ){
          whereMax = gWhere[maxvtx];  //where is the vertex with max boundary positions in this selected partition
          fprintf(stderr,"\nREFINEPART Max vertex %d belongs to partition %d ", maxvtx, whereMax);
+   fprintf(stderr,"\nREFINEPART getwrittentodisk: %d\n", getWrittenToDisk());
    if(getWrittenToDisk()){ 
    partRefine = true; 
    refineInit(hipart); cread(hipart); 
    refineInit(whereMax); cread(whereMax);
-  }
+/*   while(true){
+   bool execLoop1 = refine(hipart);
+    if (execLoop1 == 0){
+       fprintf(stderr,"\nRefinePart Read all records - RefineMap %d size: %d \n", hipart, refineMap[hipart].size());
+       break;
+     }
+   }
+	refineInit(whereMax);
+   while(true){
+       bool execLoop2 = refine(whereMax);
+       if(execLoop2 == 0){
+       fprintf(stderr,"\nRefinePart Read all records - RefineMap %d size: %d \n", whereMax, refineMap[whereMax].size());
+       break;
+       }
+   }
+*/  }
        // compute dVals for boundary vertices in both the selected partitions
        computeDVals(tid, hipart, whereMax); computeDVals(tid, whereMax, hipart);
 
@@ -948,11 +962,33 @@ void Partitioner::cWrite(const unsigned tid, unsigned noItems, InMemoryConstIter
  // fprintf(stderr, "\nThread %d cWrite to partition %d\n", tid, buffer); 
   
     pthread_mutex_lock(&locks[buffer]);
-  bWriteToInfinimem(buffer, totalCombined[tid], noItems, readBufMap[tid].begin(), end);
+  cWriteToInfinimem(buffer, totalCombined[tid], noItems, readBufMap[tid].begin(), end);
     pthread_mutex_unlock(&locks[buffer]);
-     
+  //  fprintf(stderr,"\n*********TID: %d Total Combined : %d \n\n", tid, totalCombined[buffer]); 
 }
 
+
+//--------------------------------------------------
+void Partitioner::cWriteToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, InMemoryConstIterator begin, InMemoryConstIterator end) {
+  RecordType* records = new RecordType[noItems]; 
+  unsigned ct = 0;
+
+  for (InMemoryConstIterator it = begin; it != end; ++it) {
+     records[ct].set_rank(it->first);
+  //    fprintf(stderr,"\n BWTI- TID: %d, startKey: %d, Key: %d\t, Values: ", buffer, startKey, it->first); 
+
+    for (std::vector<unsigned>::const_iterator vit = it->second.begin(); vit != it->second.end(); ++vit){
+      records[ct].add_nbrs(*vit);
+    //  fprintf(stderr,"%d\t", *vit); 
+      }
+      ++ct;
+      totalCombined[buffer]++;
+  }
+
+  assert(ct == noItems);
+  cio->file_set_batch(buffer, startKey, noItems, records);
+ delete[] records;
+}
 
 //--------------------------------------------------
 /*bool Partitioner::refine(const unsigned tid) {
@@ -1024,8 +1060,9 @@ while(true) {
    else{
        execLoop = refine(tid);
     }
-  //  fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
+//    fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
 
+//   fprintf(stderr,"\nCREAD getpartRefine: %d\n", getPartRefine());
     if(execLoop == false) {
     //  for(InMemoryConstIterator it = refineMap[tid].begin(); it != refineMap[tid].end(); ++it){
     //     fprintf(stderr,"\nCREAD- tid: %d, Computing edgecuts with Map Size %d", tid, refineMap[tid].size());
@@ -1038,11 +1075,12 @@ while(true) {
 
    // Read the kitems from infinimem and compute the edgecuts for that part
 
-  if(!getPartRefine())
+  if(!getPartRefine()){
     ComputeBECut(tid);
     refineMap[tid].erase(refineMap[tid].begin(), refineMap[tid].end());
+    }
   }
-//fprintf(stderr,"\nCREAD - RefineMap %d size: %d\n", tid, refineMap[tid].size());
+fprintf(stderr,"\nCREAD - RefineMap %d size: %d\n", tid, refineMap[tid].size());
 
 }
 

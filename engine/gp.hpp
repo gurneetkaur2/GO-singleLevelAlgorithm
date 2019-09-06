@@ -127,11 +127,11 @@ void* doCombine(void* arg)
 			for(fit = partitioner.readBufMap[tid].begin(); fit != partitioner.readBufMap[tid].end(); ++fit){
 				//        mr->ComputeBECut(tid);
 				//        mr->refine(tid, it->first, it->second);
-	//			fprintf(stderr,"\ntid: %d, Key: %d", tid, fit->first);
+		//		fprintf(stderr,"\ntid: %d, Key: %d", tid, fit->first);
 				//partitioner.totalCombined[tid]++;
 			}
 	//		partitioner.totalCombined[tid] += partitioner.readBufMap[tid].size();
-	//		fprintf(stderr,"\n-- tid: %d, totalCombined Size: %d\n", tid, partitioner.readBufMap[tid].size());
+		//	fprintf(stderr,"\n-- tid: %d, readMap Size: %d\n", tid, partitioner.readBufMap[tid].size());
 			//Write combined records to a new partition    
 			mr->cWrite(tid, partitioner.readBufMap[tid].size(), fit);
 			partitioner.readBufMap[tid].erase(partitioner.readBufMap[tid].begin(), fit);
@@ -147,7 +147,7 @@ void* doCombine(void* arg)
 			//      mr->refine(tid, it->first, it->second);
 
 			const unsigned rank = it->first;
-//			fprintf(stderr,"\n TID: %d, Key: %d", tid, rank);
+		//	fprintf(stderr,"\n TID: %d, Key: %d", tid, rank);
 			auto pos = partitioner.lookUpTable[tid].find(rank);
 			assert(pos != partitioner.lookUpTable[tid].end());
 			const std::vector<unsigned>& lookVal = pos->second; // find the batch of the vertex
@@ -160,7 +160,7 @@ void* doCombine(void* arg)
 		}
 
 	//	partitioner.totalCombined[tid] += mr->kBItems;
-	//	fprintf(stderr,"\n-- tid: %d, totalCombined: %d\n", tid, partitioner.readBufMap[tid].size());
+	//	fprintf(stderr,"\n-- tid: %d, readMap Size: %d\n", tid, partitioner.readBufMap[tid].size());
 		//Write combined records to a new partition    
 		mr->cWrite(tid, mr->kBItems, it);
 
