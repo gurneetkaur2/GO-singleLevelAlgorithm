@@ -50,32 +50,31 @@ void* doMParts(void* arg)
 	assert(infile.is_open());
 	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
 	infile.seekg(std::ios::beg); //need this for Tid = 0
-        unsigned lineId = tid*mr->linesPerThread + 1;//0, 4, 8
+        unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
 	//infile.seekg(tid*lineId, infile.beg);
-        mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
-        //mr->end_read[tid] = (tid+1)*mr->linesPerThread; //4, 7, 9
+       // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
+        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
         unsigned threadCt = 0; // mr->linesPerThread;
-	fprintf(stderr, "Creating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
+	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
         
 	std::string line;
-        
-        if(tid > 0){
+ 
+       if(tid > 0){
         //   infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	   infile.seekg(std::ios::beg);
-    	    for(int i=0; i < lineId - 1; ++i){  //remove -1 if starting from 0
+    	    for(int i=0; i < lineId; ++i){  //remove -1 if starting from 0
         	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
             }
         }
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-                //fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
-                fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId, mr->end_read[tid]);
-           if(threadCt < mr->end_read[tid]){
+        //        fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
+           if(lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
 		time_mparts -= getTimer();
-		mr->createMParts(tid, line, lineId++, mr->hDegree);     
+		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
                  threadCt++;
-               fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
+      //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
 	  }
           else
             break;
@@ -128,11 +127,11 @@ void* doCombine(void* arg)
 			for(fit = partitioner.readBufMap[tid].begin(); fit != partitioner.readBufMap[tid].end(); ++fit){
 				//        mr->ComputeBECut(tid);
 				//        mr->refine(tid, it->first, it->second);
-				fprintf(stderr,"\ntid: %d, Key: %d", tid, fit->first);
+	//			fprintf(stderr,"\ntid: %d, Key: %d", tid, fit->first);
 				//partitioner.totalCombined[tid]++;
 			}
 	//		partitioner.totalCombined[tid] += partitioner.readBufMap[tid].size();
-			fprintf(stderr,"\n-- tid: %d, totalCombined Size: %d\n", tid, partitioner.readBufMap[tid].size());
+	//		fprintf(stderr,"\n-- tid: %d, totalCombined Size: %d\n", tid, partitioner.readBufMap[tid].size());
 			//Write combined records to a new partition    
 			mr->cWrite(tid, partitioner.readBufMap[tid].size(), fit);
 			partitioner.readBufMap[tid].erase(partitioner.readBufMap[tid].begin(), fit);
@@ -148,7 +147,7 @@ void* doCombine(void* arg)
 			//      mr->refine(tid, it->first, it->second);
 
 			const unsigned rank = it->first;
-			fprintf(stderr,"\n TID: %d, Key: %d", tid, rank);
+//			fprintf(stderr,"\n TID: %d, Key: %d", tid, rank);
 			auto pos = partitioner.lookUpTable[tid].find(rank);
 			assert(pos != partitioner.lookUpTable[tid].end());
 			const std::vector<unsigned>& lookVal = pos->second; // find the batch of the vertex
@@ -161,7 +160,7 @@ void* doCombine(void* arg)
 		}
 
 	//	partitioner.totalCombined[tid] += mr->kBItems;
-		fprintf(stderr,"\n-- tid: %d, totalCombined: %d\n", tid, partitioner.readBufMap[tid].size());
+	//	fprintf(stderr,"\n-- tid: %d, totalCombined: %d\n", tid, partitioner.readBufMap[tid].size());
 		//Write combined records to a new partition    
 		mr->cWrite(tid, mr->kBItems, it);
 
@@ -218,9 +217,9 @@ void* doRefine(void* arg)
 
 //        partitioner.printParts(tid);
 		mr->partitioner.gCopy(tid);
+        fprintf(stderr,"\nFinished IO refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	}
-        partitioner.cread(tid);
-        fprintf(stderr,"\nFinished refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+ //       partitioner.cread(tid);
 	pthread_barrier_wait(&(mr->barRefine));
          if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
@@ -278,10 +277,10 @@ void* doInMemoryRefine(void* arg) {
 
   //      partitioner.printParts(tid);
 		mr->partitioner.gCopy(tid);
+        fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	}
         
-         partitioner.ComputeBECut(tid);
-        fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+//         partitioner.ComputeBECut(tid);
 	pthread_barrier_wait(&(mr->barRefine));
          if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
@@ -369,7 +368,7 @@ void GraphParts::partitionInputForParallelReads() {
 	in.close();
 	fprintf(stderr,"\n NumLines: %zu", numLines);
 	linesPerThread = numLines/nThreads;
-	fprintf(stderr,"\nLinesPerThread: %zu", linesPerThread);
+	fprintf(stderr,"\nLinesPerThread: %zu \n", linesPerThread);
 	bytesPerFile = fileSizeInBytes/nThreads + 1; //fileSizeInBytes/nThreads + 1;
 }
 

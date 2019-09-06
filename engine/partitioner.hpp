@@ -170,7 +170,6 @@ void Partitioner::writeInit(const unsigned tid) {
 //-------------------------------------------------
 //void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where){
 void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hIdSize = 0){
-
     unsigned bufferId = hashKey(to) % nCols;
     unsigned buffer = tid * nCols + bufferId; 
     if(hIdSize != 0){
@@ -193,11 +192,11 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
   //fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
 
   if (outBufMap[buffer].size() >= batchSize) {
-    fprintf(stderr,"\noutbufmap buffer %d full with %d records noItems:%d\n", buffer, outBufMap[buffer].size(), nItems[buffer]);
      
     pthread_mutex_lock(&locks[bufferId]);
+//    fprintf(stderr,"\nTID %d outbufmap buffer %d full with %d records noItems:%d\n", tid, buffer, outBufMap[buffer].size(), nItems[buffer]);
    
-    writeToInfinimem(bufferId, totalKeysInFile[buffer], outBufMap[buffer].size(), outBufMap[buffer]);
+    writeToInfinimem(bufferId, totalKeysInFile[bufferId], outBufMap[buffer].size(), outBufMap[buffer]);
     totalKeysInFile[bufferId] += nItems[buffer];
     pthread_mutex_unlock(&locks[bufferId]);
 
@@ -344,7 +343,7 @@ void Partitioner::performWrite(const unsigned tid, const unsigned buffer, const 
 
   if(it_to != outBufMap[buffer].end()){
      combine(to, it_to->second, nbrs);
-     fprintf(stderr,"\nCombining for key: %d, value: %d", to, from);
+   //  fprintf(stderr,"\nTID %d Combining for key: %d, value: %d", tid, to, from);
 //     outBufMap[buffer][to].push_back(from);
 //     nEdges[buffer]++;
       }
@@ -359,7 +358,6 @@ void Partitioner::performWrite(const unsigned tid, const unsigned buffer, const 
 void Partitioner::writeToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, const InMemoryContainer& inMemMap) {
   RecordType* records = new RecordType[noItems]; 
   unsigned ct = 0;
-//TODO: Race condition when boht the threads write to same buffer
 //  for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {
 //      fprintf(stderr,"\nBuffer: %d full with startkey: %d, noItmes:%d \t", buffer, startKey, inMemMap.size());
     
@@ -381,12 +379,12 @@ void Partitioner::writeToInfinimem(const unsigned buffer, const IdType startKey,
     if (ct != noItems){
   for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {              fprintf(stderr,"\n \n WTI- TID: %d,  Key: %d\n", buffer, it->first);
      } 
-     fprintf(stderr,"\nBuffer: %d CT: %d noItems: %d InMemMap Size: %d\n", buffer, ct, noItems, inMemMap.size());
+//     fprintf(stderr,"\nBuffer: %d CT: %d noItems: %d InMemMap Size: %d\n", buffer, ct, noItems, inMemMap.size());
 }
   assert(ct == noItems);
-//      fprintf(stderr,"\nWRITING TO INFINIMEM start: %d\n", startKey); 
+  //    fprintf(stderr,"\nWRITING TO INFINIMEM buffer: %d, startKey: %d, totalKeys: %d \n", buffer, startKey, totalKeysInFile[buffer]); 
   io->file_set_batch(buffer, startKey, noItems, records);
-      fprintf(stderr,"\nWRITTEN %d records\n", noItems); 
+    //  fprintf(stderr,"\nBUFFER %d WRITTEN %d records\n", buffer, noItems); 
 
   delete[] records;
 }
@@ -517,12 +515,11 @@ void Partitioner::ComputeBECut(const unsigned tid) {
 //--------------------------------------------------
 void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, LookUpTable& bndind, const InMemoryContainer& inMemMap) {
 
-//TODO bndind and bndptr needs to be locked when used by more than one thread
 // do not need first flag now
 //  pthread_mutex_lock(&locks[tid]);
 //  gCopy(tid);
 //  pthread_mutex_unlock(&locks[tid]);
-    fprintf(stderr,"\nInside ComputeBECUT TID %d -------\n", tid); 
+   // fprintf(stderr,"\nInside ComputeBECUT TID %d -------\n", tid); 
    //  unsigned pid = tid % nCols;
 //     IdType *bndind, *bndptr;
      unsigned src;
@@ -542,17 +539,17 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
          IdType dst = bndvert[i];
         //   fprintf(stderr,"\nTID: %d, src :%d, dst: %d", tid, src, dst); 
         //   fprintf(stderr,"\n"); 
-                 fprintf(stderr,"where[%d]: %d, where[%d]: %d\n", src, where[src], dst ,where[dst]);
+  //               fprintf(stderr,"where[%d]: %d, where[%d]: %d\n", src, where[src], dst ,where[dst]);
                  if( where[dst] != -1 && where[src] != where[dst] ) {
                //  if( where[src] != where[dst] ) {
-            //        fprintf(stderr,"Edge CUT tid: %d\n", tid);
+           //         fprintf(stderr,"Edge CUT tid: %d\n", tid);
                     ebnd++;
     		    totalPECuts[tid]++;
                    // dst = adjncy[j];
           //   fprintf(stderr,"\nBoundary Vertices tid: %d, dst: %d\n", tid, dst);
           // store the boundary vertices along with their actual location
               bndind[dst].push_back(src); // TODO: should this be where[dst]?
-     fprintf(stderr,"\nSize bndind[%d]: %d\n", dst, bndind[dst].size());
+//     fprintf(stderr,"\nSize bndind[%d]: %d\n", dst, bndind[dst].size());
               //      }
                  }
              // }
@@ -560,7 +557,7 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
  /*         if(xadj[src] == xadj[src+1]){
   */	bndvert.clear();
      }
-     fprintf(stderr,"\ntPECuts[%d]: %d\n", tid, totalPECuts[tid]);
+     fprintf(stderr,"\ntPECuts[%d]: %d\n", tid, totalPECuts[tid]/2);
 
 }
 
@@ -618,7 +615,7 @@ unsigned Partitioner::maxPECut(const unsigned tid) {
              hipart = *i;
           }
       }
-   fprintf(stderr,"\n Partition: %d has max cuts: %d", hipart, totalPECuts[hipart]/2);
+   fprintf(stderr,"\n Partition: %d has max cuts: %d", hipart, (totalPECuts[hipart]/2));
    return hipart;
 }
 
@@ -631,6 +628,7 @@ void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned
 //--------------------------------------------------
 void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst){
 //Go through adjacency (boundary) vertices of the masked vertices and update their DVals
+  //fprintf(stderr,"\nUPDVAL SRC: %d, DST: %d\n", src, dst);
   auto it_map = refineMap[hipart].find(src);
   for (auto vit = it_map->second.begin(); vit != it_map->second.end(); ++vit) {
     //   unsigned adjvtx = *vit;
@@ -667,6 +665,7 @@ void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const u
 //--------------------------------------------------
 void Partitioner::computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax) {
 //Go through each key in the selected partition to be refined and update the DVals
+//  fprintf(stderr,"\nDVAL HIPART: %d, whereMax: %d\n", hipart, whereMax);
   for (auto it = dTable[hipart].begin(); it != dTable[hipart].end(); ++it) {
       unsigned src = it->first;
 //      std::map<unsigned, unsigned>::const_iterator it_max = markMax.find(src);
@@ -683,7 +682,7 @@ void Partitioner::computeDVals(const unsigned tid, const unsigned hipart, const 
                 }
                else {
                // not a boundary vertex
-      //          fprintf(stderr,"\nDVAL src %d is not a bndry vertex ", src);
+//                fprintf(stderr,"\nDVAL src %d is not a bndry vertex ", src);
                 dTable[hipart].erase(src);
                }
      //   }
@@ -697,6 +696,7 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
   int  maxG = 0;
   int maxvtx = -1, minvtx = -1;
   unsigned vtx_ind = -1;
+//fprintf(stderr,"\nCOMPUTING Gain hipart:%d, whereMax: %d\n", hipart, whereMax);
 //Go through each key in the selected partition to be refined and update the gain 
   for (auto it = dTable[hipart].begin(); it != dTable[hipart].end(); ++it) {
       unsigned src = it->first; //maxvtx;
@@ -967,7 +967,7 @@ bool Partitioner::refine(const unsigned tid) {
  
     unsigned partbound = min(totalCombined[tid]-readNext[tid], kBItems); 
   RecordType* parts = new RecordType[partbound];
-  fprintf(stderr,"\nREFINE tid: %d, totalCombined: %d, readNext[tid]: %d, keys to read: %d \n", tid, totalCombined[tid], readNext[tid], partbound);
+ // fprintf(stderr,"\nREFINE tid: %d, totalCombined: %d, readNext[tid]: %d, keys to read: %d \n", tid, totalCombined[tid], readNext[tid], partbound);
  //for(unsigned ckey = readNextInBatch[partition]; ckey < totalCombined[partition]; ckey += batchSize){
     if (partbound > 0 && readNext[tid] < totalCombined[tid])
       cio->file_get_batch(tid, readNext[tid], partbound, parts); 
@@ -1024,25 +1024,25 @@ while(true) {
    else{
        execLoop = refine(tid);
     }
-    fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
+  //  fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
 
     if(execLoop == false) {
     //  for(InMemoryConstIterator it = refineMap[tid].begin(); it != refineMap[tid].end(); ++it){
     //     fprintf(stderr,"\nCREAD- tid: %d, Computing edgecuts with Map Size %d", tid, refineMap[tid].size());
-         ComputeBECut(tid);
        if(getWrittenToDisk() && !getPartRefine()){
+         ComputeBECut(tid);
          refineMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
       }
        break;
     }
 
    // Read the kitems from infinimem and compute the edgecuts for that part
-    ComputeBECut(tid);
 
- fprintf(stderr,"\nCREAD - RefineMap %d size: %d\n", tid, refineMap[tid].size());
   if(!getPartRefine())
+    ComputeBECut(tid);
     refineMap[tid].erase(refineMap[tid].begin(), refineMap[tid].end());
   }
+//fprintf(stderr,"\nCREAD - RefineMap %d size: %d\n", tid, refineMap[tid].size());
 
 }
 
@@ -1073,7 +1073,7 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
   for(unsigned i = 0; i <= nVtces; ++i){
      if(gWhere[i] != -1 ){ //&& gWhere[i] == tid){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){
-       std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
+//       std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
    //    stime -= getTimer();
        ofile<<i << "\t" << gWhere[i]<< std::endl;
      //  stime += getTimer();
