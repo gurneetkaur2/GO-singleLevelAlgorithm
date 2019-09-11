@@ -54,7 +54,6 @@ void* doMParts(void* arg)
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
-        unsigned threadCt = 0; // mr->linesPerThread;
 	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
         
 	std::string line;
@@ -73,7 +72,6 @@ void* doMParts(void* arg)
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
-                 threadCt++;
       //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
 	  }
           else
@@ -81,7 +79,7 @@ void* doMParts(void* arg)
         }
 
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
-	//  fprintf(stderr, "thread %u waiting for others to finish work\n", tid);
+	  fprintf(stderr, "thread %u waiting for others to finish work\n", tid);
 	//copy the local partition to global 
 
 	time_mparts -= getTimer();
@@ -169,7 +167,8 @@ void* doCombine(void* arg)
 
 	time_combine += getTimer();
 	mr->combine_times[tid] += time_combine;
-
+       
+  	fprintf(stderr, "thread %u finished Combining\n", tid);
 	return NULL;
 
 }
@@ -194,32 +193,38 @@ void* doRefine(void* arg)
 			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
 		}
         unsigned tCuts = partitioner.countTotalPECut(tid);
+	time_refine += getTimer();
         fprintf(stderr,"\nBefore refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 
+	time_refine = -getTimer();
 		while(partitioner.fetchPIds.size() > 1){
 			unsigned hipart = -1;
-                        fprintf(stderr,"\nFinding Next partition to refine");
+                       // fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
-			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
+			//fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
                         partitioner.gainTable.clear();
 			// Keep refining the partition until it reaches min edgecuts and all the bnd vtx list is exhausted
                         unsigned newtCuts = partitioner.countTotalPECut(tid);
 //                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
 				partitioner.refinePart(tid, hipart, newtCuts);
 //			}
+			time_refine += getTimer();
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
   //                      }
 			// remove the refined partition
+			time_refine = -getTimer();
 			auto id = partitioner.fetchPIds.find(hipart);
 			partitioner.fetchPIds.erase(id);
-			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
+		//	fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
 		}
 
 //        partitioner.printParts(tid);
 		mr->partitioner.gCopy(tid);
+		time_refine += getTimer();
         fprintf(stderr,"\nFinished IO refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	}
  //       partitioner.cread(tid);
+	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barRefine));
          if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
@@ -244,10 +249,10 @@ void* doInMemoryRefine(void* arg) {
 	  mr->beforeRefine(tid);
 	  mr->refineInit(tid);
 	  partitioner.initiateInMemoryRefine(tid); 
-         partitioner.addDVals(tid);
  
- 	 fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
+ 	 //fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
          partitioner.ComputeBECut(tid);
+         partitioner.addDVals(tid);
 	pthread_barrier_wait(&(mr->barRefine));
 	// Count the total edge cuts and also check the partition with max edgecuts
 	if(tid == 0){
@@ -258,30 +263,39 @@ void* doInMemoryRefine(void* arg) {
 		}
 
         unsigned tCuts = partitioner.countTotalPECut(tid);
+	time_refine += getTimer();
         fprintf(stderr,"\nBefore refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+		time_refine = -getTimer();
 		while(partitioner.fetchPIds.size() > 1){
 			unsigned hipart = -1;
-                        fprintf(stderr,"\nFinding Next partition to refine");
+                   //     fprintf(stderr,"\nFinding Next partition to refine");
 			hipart = partitioner.maxPECut(tid);
-			fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
+		//	fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
                         partitioner.gainTable.clear();
 
                         unsigned newtCuts = partitioner.countTotalPECut(tid);
 				partitioner.refinePart(tid, hipart, newtCuts);
+			time_refine += getTimer();
 			fprintf(stderr,"\nFinished refining the partition %d", hipart);
 			// remove the refined partition
+			time_refine = -getTimer();
 			auto id = partitioner.fetchPIds.find(hipart);
 			partitioner.fetchPIds.erase(id);
-			fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
+	//		fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
 		}
 
   //      partitioner.printParts(tid);
 		mr->partitioner.gCopy(tid);
-        fprintf(stderr,"\nFinished In-mem refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+	time_refine += getTimer();
+        fprintf(stderr,"\nFinished In-mem refining!!! ");
 	}
         
-//         partitioner.ComputeBECut(tid);
+	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barRefine));
+//         partitioner.ComputeBECut(tid);
+	time_refine += getTimer();
+       fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+	time_refine = -getTimer();
          if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
 	  time_refine += getTimer();
@@ -309,7 +323,13 @@ void GraphParts::run()
 	mparts_times.resize(nThreads, 0.0);
 	combine_times.resize(nParts, 0.0);
 	refine_times.resize(nParts, 0.0);
-
+        writeBuf_times.resize(nThreads, 0.0);
+        flushResidues_times.resize(nThreads, 0.0);
+        infinimem_read_times.resize(nParts, 0.0);
+        infinimem_write_times.resize(nThreads, 0.0);
+        infinimem_cread_times.resize(nParts, 0.0);
+        infinimem_cwrite_times.resize(nParts, 0.0);
+        localCombinedPairs.resize(nThreads, uint64_t(0));
 
 
 	fprintf(stderr, "Reading Graph from file\n");
@@ -324,7 +344,6 @@ void GraphParts::run()
 	    fprintf(stderr, "Running InMemoryRefiners\n");
 	    parallelExecute(doInMemoryRefine, this, nParts);
 	  //  partitioner.releaseInMemStructures();
-	    fprintf(stderr, "\nSuccess !!!!!!!!!!!!\n");
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
@@ -354,6 +373,27 @@ void GraphParts::run()
 
 	auto refine_time = max_element(std::begin(refine_times), std::end(refine_times));
 	std::cout << " Refine time : " << *refine_time << " msec" << std::endl;
+
+	uint64_t combinedPairs = std::accumulate(std::begin(localCombinedPairs), std::end(localCombinedPairs), uint64_t(0));
+  std::cout << " Total combined pairs : " << combinedPairs << std::endl;
+
+        auto writeBuf_time = max_element(std::begin(writeBuf_times), std::end(writeBuf_times)); 
+        std::cout << " writeBuf time : " << *writeBuf_time << " (msec)" << std::endl;
+
+        auto flushResidues_time = max_element(std::begin(flushResidues_times), std::end(flushResidues_times));
+        std::cout << " flushResidues time : " << *flushResidues_time << " (msec)" << std::endl;
+
+        auto infinimem_read_time = max_element(std::begin(infinimem_read_times), std::end(infinimem_read_times));
+  	std::cout << " InfiniMem Read time: " << *infinimem_read_time << " (msec)" << std::endl;
+
+	auto infinimem_write_time = max_element(std::begin(infinimem_write_times), std::end(infinimem_write_times));
+  	std::cout << " InfiniMem Write time: " << *infinimem_write_time << " (msec)" << std::endl;
+
+        auto infinimem_cread_time = max_element(std::begin(infinimem_cread_times), std::end(infinimem_cread_times));
+  	std::cout << " InfiniMem Sequential Read time: " << *infinimem_cread_time << " (msec)" << std::endl;
+
+	auto infinimem_cwrite_time = max_element(std::begin(infinimem_cwrite_times), std::end(infinimem_cwrite_times));
+  	std::cout << " InfiniMem Sequential Write time: " << *infinimem_cwrite_time << " (msec)" << std::endl;
 
 	std::cout << std::endl;
 }

@@ -46,6 +46,8 @@ std::vector<double> flushResidues_times;
 std::vector<double> infinimem_read_times;
 std::vector<double> infinimem_write_times;
 std::vector<uint64_t> localCombinedPairs; 
+std::vector<double> infinimem_cread_times;
+std::vector<double> infinimem_cwrite_times;
 // *bndind, *bndptr;
 
 void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from);
@@ -73,6 +75,7 @@ class Partitioner
 
     void bWriteToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, InMemoryConstIterator begin, InMemoryConstIterator end);
 
+    void cWriteToInfinimem(const unsigned buffer, const IdType startKey, unsigned noItems, InMemoryConstIterator begin, InMemoryConstIterator end);
     void setNum(const unsigned tid, std::vector<unsigned>& where, unsigned num);
     void gCopy(const unsigned tid);
     void gCopy(const unsigned tid, std::vector<unsigned>& gWhere);
@@ -106,6 +109,8 @@ class Partitioner
      unsigned findMaxGain(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
+   void writePartInfo(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin );
+
     void changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx);
     void printParts(const unsigned tid, std::string outputPrefix);
     void releaseInMemStructures();
