@@ -116,55 +116,26 @@ void* doCombine(void* arg)
 
 	//  fprintf(stderr, "\nDoRefine: Initializing read parameter\n");
 	mr->readInit(tid);
+       // for(unsigned i = 0; i < mr->nParts; i++){
+	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
+	    unsigned hipart = tid;
+	    unsigned whereMax = *it; 
+	    if(whereMax == tid){
+ 	       partitioner.pIdsCompleted[tid][*it] = true;
+               continue;
+	     }
+     //   partitioner.fetchPIds.insert(std::pair<std::pair<unsigned, unsigned>, bool>(std::make_pair(hipart, whereMax), 0);
+        bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
 
-	while(true) {
-		//  fprintf(stderr, "\nDoRefine: Calling Read\n");
-		bool execLoop = mr->read(tid);
-		if(execLoop == false) {
-			InMemoryContainerIterator fit;
-			for(fit = partitioner.readBufMap[tid].begin(); fit != partitioner.readBufMap[tid].end(); ++fit){
-				//        mr->ComputeBECut(tid);
-				//        mr->refine(tid, it->first, it->second);
-		//		fprintf(stderr,"\ntid: %d, Key: %d", tid, fit->first);
-				//partitioner.totalCombined[tid]++;
-			}
-	//		partitioner.totalCombined[tid] += partitioner.readBufMap[tid].size();
-		//	fprintf(stderr,"\n-- tid: %d, readMap Size: %d\n", tid, partitioner.readBufMap[tid].size());
-			//Write combined records to a new partition    
-			mr->cWrite(tid, partitioner.readBufMap[tid].size(), fit);
-			partitioner.readBufMap[tid].erase(partitioner.readBufMap[tid].begin(), fit);
-			break;
-		}
+        fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d\n", tid, hipart, whereMax);
+       // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
+            partitioner.bRefine(tid, hipart, whereMax, ret);
+ 	    partitioner.pIdsCompleted[hipart][whereMax] = true;
 
-		unsigned counter = 0; 
-		InMemoryContainerIterator it;
-		for (it = partitioner.readBufMap[tid].begin(); it != partitioner.readBufMap[tid].end(); ++it) {
-			if (counter >= mr->kBItems)
-				break;
-
-			//      mr->refine(tid, it->first, it->second);
-
-			const unsigned rank = it->first;
-		//	fprintf(stderr,"\n TID: %d, Key: %d", tid, rank);
-			auto pos = partitioner.lookUpTable[tid].find(rank);
-			assert(pos != partitioner.lookUpTable[tid].end());
-			const std::vector<unsigned>& lookVal = pos->second; // find the batch of the vertex
-			for(unsigned val=0; val<lookVal.size(); val++) {
-				partitioner.fetchBatchIds[tid].insert(lookVal[val]);
-				partitioner.keysPerBatch[tid][lookVal[val]] += 1; 
-			}
-			partitioner.lookUpTable[tid].erase(rank);
-			counter++;
-		}
-
-	//	partitioner.totalCombined[tid] += mr->kBItems;
-	//	fprintf(stderr,"\n-- tid: %d, readMap Size: %d\n", tid, partitioner.readBufMap[tid].size());
-		//Write combined records to a new partition    
-		mr->cWrite(tid, mr->kBItems, it);
-
-		partitioner.readBufMap[tid].erase(partitioner.readBufMap[tid].begin(), it);
-	}
-
+           // fprintf(stderr,"\n WhereMax: %d, hipart: %d, PIDS: %d ", whereMax, hipart, partitioner.pIdsCompleted[tid][*it]);
+  }
+	pthread_barrier_wait(&(mr->barRefine));
+	  mr->afterRefine(tid, mr->nVertices);
 	time_combine += getTimer();
 	mr->combine_times[tid] += time_combine;
        
@@ -177,7 +148,7 @@ void* doCombine(void* arg)
 // Refiner driver
 void* doRefine(void* arg)
 {
-
+/*
 	double time_refine = -getTimer();
 
 	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
@@ -230,7 +201,7 @@ void* doRefine(void* arg)
 	  mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
-
+*/
 	return NULL;
 
 }
@@ -246,60 +217,36 @@ void* doInMemoryRefine(void* arg) {
 	  GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	  Partitioner& partitioner = mr->partitioner;
 
-	  mr->beforeRefine(tid);
 	  mr->refineInit(tid);
 	  partitioner.initiateInMemoryRefine(tid); 
- 
- 	 //fprintf(stderr,"\nIn Memory REFINE- tid: %d, Computing edgecuts with Map Size %d", tid, partitioner.refineMap[tid].size());
-         partitioner.ComputeBECut(tid);
-         partitioner.addDVals(tid);
-	pthread_barrier_wait(&(mr->barRefine));
-	// Count the total edge cuts and also check the partition with max edgecuts
-	if(tid == 0){
-	 partitioner.releaseInMemStructures();
-
-		for (unsigned i = 0; i < mr->nThreads; i++){
-			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
-		}
-
-        unsigned tCuts = partitioner.countTotalPECut(tid);
-	time_refine += getTimer();
-        fprintf(stderr,"\nBefore refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-		time_refine = -getTimer();
-		while(partitioner.fetchPIds.size() > 1){
-			unsigned hipart = -1;
-                   //     fprintf(stderr,"\nFinding Next partition to refine");
-			hipart = partitioner.maxPECut(tid);
-		//	fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
-                        partitioner.gainTable.clear();
-
-                        unsigned newtCuts = partitioner.countTotalPECut(tid);
-				partitioner.refinePart(tid, hipart, newtCuts);
-			time_refine += getTimer();
-			fprintf(stderr,"\nFinished refining the partition %d", hipart);
-			// remove the refined partition
-			time_refine = -getTimer();
-			auto id = partitioner.fetchPIds.find(hipart);
-			partitioner.fetchPIds.erase(id);
-	//		fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
-		}
-
-  //      partitioner.printParts(tid);
-		mr->partitioner.gCopy(tid);
-	time_refine += getTimer();
-        fprintf(stderr,"\nFinished In-mem refining!!! ");
-	}
-        
-	time_refine = -getTimer();
-	pthread_barrier_wait(&(mr->barRefine));
-//         partitioner.ComputeBECut(tid);
-	time_refine += getTimer();
+       //   partitioner.addDVals(tid);
        fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+ 
+	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
+	    unsigned hipart = tid;
+	    unsigned whereMax = *it; 
+	    if(whereMax == tid){
+ 	       partitioner.pIdsCompleted[tid][*it] = true;
+               continue;
+	     }
+     //   partitioner.fetchPIds.insert(std::pair<std::pair<unsigned, unsigned>, bool>(std::make_pair(hipart, whereMax), 0);
+        bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
+
+        fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d\n", tid, hipart, whereMax);
+       // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
+            partitioner.inMemRefine(tid, hipart, whereMax, ret);
+ 	    partitioner.pIdsCompleted[hipart][whereMax] = true;
+
+  }
+        
+	time_refine += getTimer();
+     //  fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	time_refine = -getTimer();
-         if(tid == 0)
-	  mr->afterRefine(tid, mr->nVertices);
-	  time_refine += getTimer();
-	  mr->refine_times[tid] += time_refine;
+	pthread_barrier_wait(&(mr->barRefine));
+	mr->afterRefine(tid, mr->nVertices);
+	time_refine += getTimer();
+	mr->refine_times[tid] += time_refine;
+  	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
 	 
 	return NULL;
 }
@@ -312,7 +259,7 @@ void GraphParts::run()
 	fprintf(stderr, "initializing\n");
 	fprintf(stderr, "Init Graph partitioners in-Memory Buffers\n");
 
-	double run_time = -getTimer();
+        double init_time = -getTimer();
 	partitioner.initg(nVertices, hDegree, nThreads, batchSize, kBItems, nParts); // GK 
 
 
@@ -330,7 +277,8 @@ void GraphParts::run()
         infinimem_cread_times.resize(nParts, 0.0);
         infinimem_cwrite_times.resize(nParts, 0.0);
         localCombinedPairs.resize(nThreads, uint64_t(0));
-
+ 
+ 	init_time += getTimer();
 
 	fprintf(stderr, "Reading Graph from file\n");
 	parallelExecute(doMParts, this, nThreads);
@@ -343,15 +291,15 @@ void GraphParts::run()
 	 if(!partitioner.getWrittenToDisk()) {
 	    fprintf(stderr, "Running InMemoryRefiners\n");
 	    parallelExecute(doInMemoryRefine, this, nParts);
-	  //  partitioner.releaseInMemStructures();
+	    partitioner.releaseInMemStructures();
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
 	parallelExecute(doCombine, this, nParts);
 
 	partitioner.releaseReadPartStructures();
-	fprintf(stderr, "\nRunning Refiners\n");
-	parallelExecute(doRefine, this, nParts);
+//	fprintf(stderr, "\nRunning Refiners\n");
+//	parallelExecute(doRefine, this, nParts);
 	 }
 
 	fprintf(stderr, "Graph partitioned. Shutting down.\n");
@@ -361,15 +309,17 @@ void GraphParts::run()
 	partitioner.shutdown();
 
 	std::cout << "------- Final Time ---------" << std::endl;
-	std::cout << " Total time : " << run_time << " (msec)" << std::endl;
+	std::cout << " Init time : " << init_time << " (msec)" << std::endl;
 
-	run_time += getTimer();
 
 	auto mparts_time = max_element(std::begin(mparts_times), std::end(mparts_times)); 
-	std::cout << " Partitioning time : " << *mparts_time/1000 << " (sec)" << std::endl;
+	std::cout << " Initial Partitioning time : " << *mparts_time/1000 << " (sec)" << std::endl;
 
 	auto combine_time = max_element(std::begin(combine_times), std::end(combine_times));
-	std::cout << " Combine time : " << *combine_time << " msec" << std::endl;
+	std::cout << " Refine+Combine time : " << *combine_time << " msec" << std::endl;
+
+        std::cout<< " Partition+Refine time: " << ((*mparts_time) + (*combine_time)) << " msec" <<std::endl;
+        std::cout<< " Init+Partition+Refine time: " << ((init_time) + (*mparts_time) + (*combine_time)) << " msec" <<std::endl;
 
 	auto refine_time = max_element(std::begin(refine_times), std::end(refine_times));
 	std::cout << " Refine time : " << *refine_time << " msec" << std::endl;
@@ -474,8 +424,8 @@ bool GraphParts::refine(const unsigned tid) {
 }
 
 //--------------------------------------------
-void GraphParts::ComputeBECut(const unsigned tid) {
-	return partitioner.ComputeBECut(tid);
+void GraphParts::ComputeBECut(const unsigned tid, const InMemoryContainer& inMemMap) {
+	return partitioner.ComputeBECut(tid, inMemMap);
 }
 
 //--------------------------------------------

@@ -60,6 +60,24 @@ void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<
   InMemoryReductionState(unsigned size) : begins(size), ends(size) { }
 };
 */
+
+struct key {
+    unsigned p1;
+    unsigned p2;
+
+    // Provide a "<" operator that orders keys.
+    // The way it orders them doesn't matter, all that matters is that
+    // it orders them consistently.
+    bool operator<(key const& other) const {
+        if (p1 < other.p1) return true; else
+        if (p1 == other.p1) {
+            if (p2 < other.p2) return true; 
+        }
+
+        return false;
+    }
+};
+
 class Partitioner
 {
 
@@ -93,23 +111,31 @@ class Partitioner
     void addDVals(const unsigned tid);
  
     void ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, LookUpTable& bndind, const InMemoryContainer& inMemMap);
-    void ComputeBECut(const unsigned tid);
+    void ComputeBECut(const unsigned tid, const InMemoryContainer& inMemMap);
     void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
     unsigned maxPECut(const unsigned tid);
     unsigned maxBound(const unsigned tid, LookUpTable& bndind );
     unsigned minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart );
     void deletebndvert(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax );
+    void bRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, const bool ret);
+    void bRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const bool ret);
+    void inMemRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, const bool ret);
+    void inMemRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const bool ret);
+
+
     void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& where, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin);
     void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts);
     void refineInit(const unsigned tid);
-    void computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax);
+    void computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k);
     void updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst);
-    unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin);
+    unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k, const InMemoryContainer& inMemMap);
+    unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const unsigned long long k, const InMemoryContainer& inMemMap);
      unsigned findMaxGain(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
-   void writePartInfo(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin );
+   void writePartInfo(const unsigned tid, const unsigned hipart, const unsigned whereMax );
+    bool checkPIDStarted(const unsigned tid, const unsigned hipart, const unsigned whereMax);
 
     void changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx);
     void printParts(const unsigned tid, std::string outputPrefix);
@@ -144,16 +170,18 @@ class Partitioner
     InMemTable gainTable;
 
     std::set<unsigned>* fetchBatchIds;
-    std::set<unsigned> fetchPIds;
+    std::set<unsigned>* fetchPIds;
     std::map<unsigned, unsigned> hIds;
 
 //    std::vector<unsigned>* partitionBndInd;
 //    std::vector<unsigned>* partitionBndPtr;
     std::vector<unsigned long long>* readNextInBatch;
     std::vector<bool>* batchesCompleted;
+    std::vector<bool>* pIdsCompleted;
     std::vector<unsigned>* keysPerBatch;
-    std::map<unsigned, unsigned> markMax;
-    std::map<unsigned, unsigned> markMin;
+    std::map<unsigned, unsigned>* markMax;
+    std::map<unsigned, unsigned>* markMin;
+    std::map<unsigned, unsigned> pIdStarted;
   private:
    
     unsigned nVtces;   

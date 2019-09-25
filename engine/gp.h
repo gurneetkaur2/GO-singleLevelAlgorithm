@@ -32,7 +32,7 @@ class GraphParts
     bool refine(const unsigned tid);
     void refineInit(const unsigned buffer);
     void subtractRefineTimes(const unsigned tid, const double stime);
-    void ComputeBECut(const unsigned tid);
+    void ComputeBECut(const unsigned tid, const InMemoryContainer& inMemMap);
     void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
 
