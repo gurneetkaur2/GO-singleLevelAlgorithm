@@ -104,11 +104,11 @@ void* doMParts(void* arg)
 
 
 //---------------------------------------------
-// Combine driver
-void* doCombine(void* arg)
+// Refine driver
+void* doRefine(void* arg)
 {
 
-	double time_combine = -getTimer();
+	double time_refine = -getTimer();
 
 	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
@@ -126,8 +126,10 @@ void* doCombine(void* arg)
 	     }
      //   partitioner.fetchPIds.insert(std::pair<std::pair<unsigned, unsigned>, bool>(std::make_pair(hipart, whereMax), 0);
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
+	time_refine += getTimer();
 
         fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d\n", tid, hipart, whereMax);
+	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.bRefine(tid, hipart, whereMax, ret);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
@@ -136,72 +138,10 @@ void* doCombine(void* arg)
   }
 	pthread_barrier_wait(&(mr->barRefine));
 	  mr->afterRefine(tid, mr->nVertices);
-	time_combine += getTimer();
-	mr->combine_times[tid] += time_combine;
-       
-  	fprintf(stderr, "thread %u finished Combining\n", tid);
-	return NULL;
-
-}
-
-//---------------------------------------------
-// Refiner driver
-void* doRefine(void* arg)
-{
-/*
-	double time_refine = -getTimer();
-
-	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
-	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
-	Partitioner& partitioner = mr->partitioner;
-	mr->refineInit(tid);
-	partitioner.cread(tid);
-	pthread_barrier_wait(&(mr->barRefine));
-	// Count the total edge cuts and also check the partition with max edgecuts
-	if(tid == 0){
-
-		for (unsigned i = 0; i < mr->nThreads; i++){
-			partitioner.fetchPIds.insert(i);  //Partition ids  - 0,1,2 .. 
-		}
-        unsigned tCuts = partitioner.countTotalPECut(tid);
-	time_refine += getTimer();
-        fprintf(stderr,"\nBefore refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-
-	time_refine = -getTimer();
-		while(partitioner.fetchPIds.size() > 1){
-			unsigned hipart = -1;
-                       // fprintf(stderr,"\nFinding Next partition to refine");
-			hipart = partitioner.maxPECut(tid);
-			//fprintf(stderr,"\n----Refining partition %d with max cuts\n", hipart);
-                        partitioner.gainTable.clear();
-			// Keep refining the partition until it reaches min edgecuts and all the bnd vtx list is exhausted
-                        unsigned newtCuts = partitioner.countTotalPECut(tid);
-//                        if(partitioner.bndIndMap[hipart].size() > 0 && newtCuts >=tCuts){
-				partitioner.refinePart(tid, hipart, newtCuts);
-//			}
-			time_refine += getTimer();
-			fprintf(stderr,"\nFinished refining the partition %d", hipart);
-  //                      }
-			// remove the refined partition
-			time_refine = -getTimer();
-			auto id = partitioner.fetchPIds.find(hipart);
-			partitioner.fetchPIds.erase(id);
-		//	fprintf(stderr,"\nRemoving %d from fetchPIds size %d\n", *id, partitioner.fetchPIds.size());
-		}
-
-//        partitioner.printParts(tid);
-		mr->partitioner.gCopy(tid);
-		time_refine += getTimer();
-        fprintf(stderr,"\nFinished IO refining, Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-	}
- //       partitioner.cread(tid);
-	time_refine = -getTimer();
-	pthread_barrier_wait(&(mr->barRefine));
-         if(tid == 0)
-	  mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
-*/
+       
+  	fprintf(stderr, "thread %u finished Combining\n", tid);
 	return NULL;
 
 }
@@ -217,10 +157,14 @@ void* doInMemoryRefine(void* arg) {
 	  GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	  Partitioner& partitioner = mr->partitioner;
 
-	  mr->refineInit(tid);
 	  partitioner.initiateInMemoryRefine(tid); 
-       //   partitioner.addDVals(tid);
-       fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+       partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
+	time_refine += getTimer();
+	pthread_barrier_wait(&(mr->barRefine));
+       if(tid == 0)
+       fprintf(stderr,"\n Total EdgeCuts Before: %d\n", partitioner.countTotalPECut(tid));
+	time_refine = -getTimer();
+	  mr->refineInit(tid);
  
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
 	    unsigned hipart = tid;
@@ -231,21 +175,24 @@ void* doInMemoryRefine(void* arg) {
 	     }
      //   partitioner.fetchPIds.insert(std::pair<std::pair<unsigned, unsigned>, bool>(std::make_pair(hipart, whereMax), 0);
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
+	time_refine += getTimer();
 
         fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d\n", tid, hipart, whereMax);
+	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.inMemRefine(tid, hipart, whereMax, ret);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
 
   }
         
-	time_refine += getTimer();
-     //  fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barRefine));
 	mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
+   //    partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
+	pthread_barrier_wait(&(mr->barRefine));
+       if(tid == 0)
+        fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
   	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
 	 
 	return NULL;
@@ -268,14 +215,11 @@ void GraphParts::run()
 
 	end_read.resize(nThreads, 0.0);
 	mparts_times.resize(nThreads, 0.0);
-	combine_times.resize(nParts, 0.0);
 	refine_times.resize(nParts, 0.0);
         writeBuf_times.resize(nThreads, 0.0);
         flushResidues_times.resize(nThreads, 0.0);
         infinimem_read_times.resize(nParts, 0.0);
         infinimem_write_times.resize(nThreads, 0.0);
-        infinimem_cread_times.resize(nParts, 0.0);
-        infinimem_cwrite_times.resize(nParts, 0.0);
         localCombinedPairs.resize(nThreads, uint64_t(0));
  
  	init_time += getTimer();
@@ -295,7 +239,7 @@ void GraphParts::run()
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
-	parallelExecute(doCombine, this, nParts);
+	parallelExecute(doRefine, this, nParts);
 
 	partitioner.releaseReadPartStructures();
 //	fprintf(stderr, "\nRunning Refiners\n");
@@ -315,14 +259,14 @@ void GraphParts::run()
 	auto mparts_time = max_element(std::begin(mparts_times), std::end(mparts_times)); 
 	std::cout << " Initial Partitioning time : " << *mparts_time/1000 << " (sec)" << std::endl;
 
-	auto combine_time = max_element(std::begin(combine_times), std::end(combine_times));
-	std::cout << " Refine+Combine time : " << *combine_time << " msec" << std::endl;
-
-        std::cout<< " Partition+Refine time: " << ((*mparts_time) + (*combine_time)) << " msec" <<std::endl;
-        std::cout<< " Init+Partition+Refine time: " << ((init_time) + (*mparts_time) + (*combine_time)) << " msec" <<std::endl;
-
 	auto refine_time = max_element(std::begin(refine_times), std::end(refine_times));
 	std::cout << " Refine time : " << *refine_time << " msec" << std::endl;
+
+        std::cout<< " Partition+Refine time: " << ((*mparts_time) + (*refine_time)) << " msec" <<std::endl;
+        std::cout<< " Init+Partition+Refine time: " << ((init_time) + (*mparts_time) + (*refine_time)) << " msec" <<std::endl;
+
+//	auto refine_time = max_element(std::begin(refine_times), std::end(refine_times));
+//	std::cout << " Refine time : " << *refine_time << " msec" << std::endl;
 
 	uint64_t combinedPairs = std::accumulate(std::begin(localCombinedPairs), std::end(localCombinedPairs), uint64_t(0));
   std::cout << " Total combined pairs : " << combinedPairs << std::endl;
@@ -338,12 +282,6 @@ void GraphParts::run()
 
 	auto infinimem_write_time = max_element(std::begin(infinimem_write_times), std::end(infinimem_write_times));
   	std::cout << " InfiniMem Write time: " << *infinimem_write_time << " (msec)" << std::endl;
-
-        auto infinimem_cread_time = max_element(std::begin(infinimem_cread_times), std::end(infinimem_cread_times));
-  	std::cout << " InfiniMem Sequential Read time: " << *infinimem_cread_time << " (msec)" << std::endl;
-
-	auto infinimem_cwrite_time = max_element(std::begin(infinimem_cwrite_times), std::end(infinimem_cwrite_times));
-  	std::cout << " InfiniMem Sequential Write time: " << *infinimem_cwrite_time << " (msec)" << std::endl;
 
 	std::cout << std::endl;
 }
@@ -397,17 +335,10 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 }
 
 //--------------------------------------------  GK
-//void GraphParts::coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const unsigned int* mapSupRowstoRows)
 void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree = 0){
 	partitioner.writeBuf(tid, to, from, hidegree);
 }
 
-/*void GraphParts::coarsen(const unsigned tid, graph_t *graph, graph_t *cgraph, unsigned CoarsenTo)
-  {
-  partitioner.coarsen(tid, graph, cgraph, CoarsenTo);
-//  partitioner.coarsen(tid, cgraph, CoarsenTo, numEdgesSupRowstoRows, mapSupRowstoRows);
-}
- */
 //--------------------------------------------
 bool GraphParts::read(const unsigned tid) {
 	return partitioner.read(tid);
@@ -416,11 +347,6 @@ bool GraphParts::read(const unsigned tid) {
 //--------------------------------------------
 void GraphParts::printParts(const unsigned tid, std::string outputPrefix) {
 	return partitioner.printParts(tid, outputPrefix);
-}
-
-//--------------------------------------------
-bool GraphParts::refine(const unsigned tid) {
-	return partitioner.refine(tid);
 }
 
 //--------------------------------------------

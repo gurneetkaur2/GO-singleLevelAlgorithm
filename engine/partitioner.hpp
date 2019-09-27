@@ -43,8 +43,6 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
   totalPECuts = new IdType[nCols];
   totalKeysInFile = new IdType[nCols];
   totalCombined = new IdType[nCols];
-  readNext = new IdType[nCols];
-  //nReadKeys = new IdType[nBuffers];
   nItems = new IdType[nRows * nCols];
   //nCuts = new IdType[nCols];
 //  nEdges = new IdType[nRows * nCols];
@@ -54,7 +52,6 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
   
   outBufMap = new InMemoryContainer[nRows * nCols];
   readBufMap = new InMemoryContainer[nCols];
-  refineMap = new InMemoryContainer[nCols];
   bndIndMap = new LookUpTable[nCols];
   lookUpTable = new LookUpTable[nCols];
 //  gainTable = new InMemTable[nCols];
@@ -114,19 +111,12 @@ void Partitioner::shutdown()
   dTable->clear();
   delete cio;
    for (unsigned i = 0; i < nCols; i++){
-    refineMap[i].clear();
     bndIndMap[i].clear();
   }
-  delete[] refineMap;
-  delete[] readNext;
   delete[] totalPECuts;
   delete[] totalCombined;
   delete[] bndIndMap;
-//  delete[] gainTable;
   delete[] dTable;
-//  delete[] partitionBndInd;
-//  delete[] partitionBndPtr;
-  //delete[] nReadKeys;
 }
 
 //-------------------------------------------------
@@ -456,23 +446,6 @@ void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey
 }
 
 //--------------------------------------------------
-/*void Partitioner::flushBResidues(const unsigned tid) {
-
-  fprintf(stderr,"\nFlushing buffer residues tid: %d\n", tid);
-     
-  if(tid >= nCols) 
-    return;
-  
-//  if(nCols == 1) {
-    writeToInfinimem(tid, totalKeysInFile[tid], static_cast<unsigned>(outBufMap[tid].size()), outBufMap[tid]);
-    outBufMap[tid].clear();
-    totalKeysInFile[tid] += nItems[tid];
-    nItems[tid] = 0;
-//  }
-   
-}
-*/
-//--------------------------------------------------
 void Partitioner::readInit(const unsigned tid) {
   unsigned j=0;
   for (unsigned long long i = 0; i <= totalKeysInFile[tid]; i+= batchSize) {
@@ -492,8 +465,9 @@ void Partitioner::refineInit(const unsigned tid) {
   for (unsigned i = 0; i < nCols; i++) {
     fetchPIds[tid].insert(i);  //partition ids - 0,1,2 .. 
         pIdsCompleted[tid].push_back(false);
-      // fprintf(stderr, "\ntid: %d, i: %d, PiDsCompleted: %d ", tid, i, pIdsCompleted[tid][i]);
   }
+  bndIndMap[tid].clear();
+  totalPECuts[tid] = 0; 
 }
 
 //--------------------------------------------------
@@ -515,7 +489,6 @@ bool Partitioner::read(const unsigned tid, InMemoryContainer& readBufMap, std::v
 
     keysPerBatch[batch] = std::min(keysPerBatch[batch], static_cast<unsigned>(batchBoundary - readNextInBatch[batch]));
 
-     // fprintf(stderr,"\nREAD- TID: %d, startKey: %d ", tid, readNextInBatch[batch]); 
     if (keysPerBatch[batch] > 0 && readNextInBatch[batch] < batchBoundary)
       io->file_get_batch(tid, readNextInBatch[batch], keysPerBatch[batch], records); 
 
@@ -574,13 +547,6 @@ void Partitioner::ComputeBECut(const unsigned tid, const InMemoryContainer& inMe
 //--------------------------------------------------
 void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& where, LookUpTable& bndind, const InMemoryContainer& inMemMap) {
 
-// do not need first flag now
-//  pthread_mutex_lock(&locks[tid]);
-//  gCopy(tid);
-//  pthread_mutex_unlock(&locks[tid]);
-   // fprintf(stderr,"\nInside ComputeBECUT TID %d -------\n", tid); 
-   //  unsigned pid = tid % nCols;
-//     IdType *bndind, *bndptr;
      unsigned src;
     // bool first = 1;
      std::vector<unsigned> bndvert;     
@@ -681,13 +647,17 @@ unsigned Partitioner::maxPECut(const unsigned tid) {
 void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst){
 //Go through adjacency (boundary) vertices of the masked vertices and update their DVals
   auto it_map = readBufMap[hipart].find(src);
- fprintf(stderr,"\nUpdateDVAL src: %d ", src);
+ fprintf(stderr,"\nUpdateDVAL src: %d  size %d ", src, it_map->second.size());
   for ( auto vit = it_map->second.begin(); vit != it_map->second.end(); ++vit ) {
        unsigned adjvtx = *vit;
+     //    fprintf(stderr,"\nCHECK VIT %d ", *vit);
        if(gWhere.at(*vit) == whereMax){ // the vertex should belong to the other partition being refined with
-  //      auto it_bnd = bndIndMap[hipart].find(*vit); 
-   //     if(it_bnd != bndIndMap[hipart].end()){
-       // these vertices are connected to src .. need to find their connect with dst
+      // fprintf(stderr,"\nVIT: %d ", adjvtx);
+   /*       auto it_dt = dTable[whereMax].find(adjvtx);
+	  if(it_dt == dTable[whereMax].end()){
+             continue;
+          }
+     */  // these vertices are connected to src .. need to find their connect with dst
           auto it_dst = readBufMap[whereMax].find(dst);
           unsigned conDst = 0;
           if (std::find(it_dst->second.begin(), it_dst->second.end(), *vit) == it_dst->second.end()){
@@ -701,21 +671,10 @@ void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const u
         	unsigned currval = dTable[whereMax].at(*vit);    
 		int dVal = currval + 2 * connect;
            // fprintf(stderr,"\nSRC: %d DST: %d vtx: %d CONNECT: %d dVal: %d ", src, dst, *vit, connect, dVal);
-            // if(dVal >= 0) {
                 dTable[whereMax].at(adjvtx) = dVal;
-            // }
-		// we do not need negative DVals
-            // else 
-		//dTable[whereMax].erase(vit);
              
           // fprintf(stderr,"\nUpdated DVAL for vertex %d is %d   ", *vit, dTable[whereMax].at(*vit));
           }
-     //     else {
-          // not a boundary vertex
-    //        fprintf(stderr,"\nDVAL %d is not a bndry vertex in part %d ", *vit, hipart);
-       //     continue;
-        //  }
-     // }
   }
 
 }
@@ -734,21 +693,15 @@ void Partitioner::computeDVals(const unsigned tid, const unsigned hipart, const 
                continue;
 		}
 	      else{
-       fprintf(stderr,"\nSRC: %d ", src);
+     //  fprintf(stderr,"\nSRC: %d ", src);
 //        fprintf(stderr,"\n-- tid: %d, k: %d hipart: %d whereMax: %d", tid, k, hipart, whereMax);
               auto it_bnd = bndIndMap[whereMax].find(src); 
                 if(it_bnd != bndIndMap[whereMax].end()){
                    unsigned inDeg = dTable[hipart][src] - bndIndMap[whereMax][src].size();                   int dVal = bndIndMap[whereMax][src].size() - inDeg;
    
-                  // if(dVal >= 0){
                       dTable[hipart].at(it_bnd->first) = dVal;
   //   fprintf(stderr,"\nDVAL for vertex %d is %d in part %d \n", src, dTable[hipart].at(it_bnd->first), hipart);
 			++it;
-                   // }
-		    // we do not need negative DVals
-                   // else 
-                     //   ++it;
-		//	dTable[hipart].erase(it++);
  		}
                else {
                // not a boundary vertex
@@ -803,7 +756,7 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
                  else
                        connect = 1;
 		
-       //  fprintf(stderr,"\ntid: %d SRC: %d DST: %d CONNECT: %d ", tid, src, dst, connect);
+    //     fprintf(stderr,"\ntid: %d SRC: %d DST: %d CONNECT: %d ", tid, src, dst, connect);
                   if(!connect)      
              	    gainTable[ct] = dsrc + ddst;
            	  else
@@ -830,9 +783,10 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
 //TODO:: there can be race condition writing in markMax and min by diff threads
     markMax[maxvtx] = minvtx;  
     markMin[minvtx] = maxG;  
-    
-    updateDVals(tid, hipart, whereMax, maxvtx, minvtx); 
-    updateDVals(tid, whereMax, hipart, minvtx, maxvtx);
+    if(!getWrittenToDisk()){
+      updateDVals(tid, hipart, whereMax, maxvtx, minvtx); 
+      updateDVals(tid, whereMax, hipart, minvtx, maxvtx);
+    }
     return maxG;
    }
 return -1;
@@ -847,7 +801,7 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
 //--------------------------------------------------
 void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const bool ret) {
 
-  unsigned maxGain = -1;
+  int maxGain = -1;
   unsigned long long k = 0;
   while(true) {
                 //  fprintf(stderr, "\nDoRefine: Calling Read\n");
@@ -856,18 +810,16 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
        
 
      for (InMemoryContainerIterator fit = readBufMap[tid].begin(); fit != readBufMap[tid].end(); ++fit) {
+      //   fprintf(stderr,"\nVTx %d in memory ", fit->first);
      		dTable[tid][fit->first] = fit->second.size();
 	}
    //  fprintf(stderr,"\n-- tid: %d, readMap HipartSize: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
      ComputeBECut(tid, readBufMap[tid]);
      pthread_barrier_wait(&(barRefinepart));
-   // pthread_mutex_lock(&locks[hipart]);
      computeDVals(tid, hipart, whereMax, k);
-   // pthread_mutex_unlock(&locks[hipart]);
      pthread_barrier_wait(&(barRefinepart));
-    fprintf(stderr, "\ntid: %d, dTableSize: %d  ", tid, dTable[hipart].size());
+    //fprintf(stderr, "\ntid: %d, dTableSize: %d  ", tid, dTable[hipart].size());
     
-     //if(pIdsCompleted[whereMax][hipart] != true){
 //     fprintf(stderr,"\n**********************TID %d , ret: %d  ******** ", tid, ret);
      if(ret == true) {
         do{
@@ -877,13 +829,10 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
      }
      k += dTable[hipart].size();
      if (maxGain == -1){
- //       fprintf(stderr,"\n tid :%d NO positive gain found !!!!", tid);
         fprintf(stderr,"\n OR Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
-     //pthread_barrier_wait(&(barRefinepart));
       }
-   //  dTable[tid].clear();
      //Write combined records to a new partition    
-     cWrite(tid, readBufMap[tid].size(), readBufMap[tid].end());
+     //cWrite(tid, readBufMap[tid].size(), readBufMap[tid].end());
      readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
      break;
      }
@@ -894,6 +843,8 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
           if (counter >= kBItems)
               break;
 
+//         fprintf(stderr,"\nVTx %d in memory  size %d", it->first, it->second.size());
+     		dTable[tid][it->first] = it->second.size();
           const unsigned rank = it->first;
      dTable[tid][rank] = it->second.size();
                 //      fprintf(stderr,"\n TID: %d, Key: %d", tid, rank);
@@ -913,7 +864,7 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
      pthread_barrier_wait(&(barRefinepart));
       computeDVals(tid, hipart, whereMax, k);
      pthread_barrier_wait(&(barRefinepart));
-    // if(pIdsCompleted[whereMax][hipart] != true)
+  //  fprintf(stderr, "\ntid: %d, dTableSize: %d  ", tid, dTable[hipart].size());
   //   fprintf(stderr,"\n**********************TID %d , ret: %d  ******** ", tid, ret);
      if(ret == true) {
         do{
@@ -922,20 +873,21 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
 	} while(maxGain > 0);
      }
      k += dTable[hipart].size();
-//     if (maxGain == -1){
- //       fprintf(stderr,"\nTID: %d NO positive gain found !!!!", tid);
-       // fprintf(stderr,"\n OR Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
-     //pthread_barrier_wait(&(barRefinepart));
-   //   }
+     if (maxGain == -1){
+        fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
+          break;
+      }
      //Write combined records to a new partition    
-     cWrite(tid, kBItems, it);
+     //cWrite(tid, kBItems, it);
 
      readBufMap[tid].erase(readBufMap[tid].begin(), it);
      }
 
    // pthread_mutex_lock(&locks[tid]);
+     if(ret == true) {
         writePartInfo(tid, hipart, whereMax);
    // pthread_mutex_unlock(&locks[tid]);
+     }
 }
 
 //--------------------------------------------------
@@ -949,49 +901,66 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 
   int maxGain = -1;
   unsigned long long k = 0;
-                //  fprintf(stderr, "\nDoRefine: Calling Read\n");
+  while(true){
+   if(readBufMap[tid].size() <= kBItems){
      addDVals(tid);
-     //fprintf(stderr,"\n-- tid: %d, readMap HipartSize: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
      ComputeBECut(tid, readBufMap[tid]);
      pthread_barrier_wait(&(barRefinepart));
-   // pthread_mutex_lock(&locks[hipart]);
      computeDVals(tid, hipart, whereMax, k);
-   // pthread_mutex_unlock(&locks[hipart]);
      pthread_barrier_wait(&(barRefinepart));
     
-   //  fprintf(stderr,"\n********InMemory TID %d , ret: %d  ******** ", tid, ret);
+//     fprintf(stderr,"\n********InMemory TID %d , ret: %d  ******** ", tid, ret);
      if(ret == true) {
         do{
               gainTable.clear();
               maxGain = computeGain(tid, hipart, whereMax, k, readBufMap[hipart]);
 	} while(maxGain > 0);
      }
-    // k += dTable[hipart].size();
+     k += dTable[hipart].size();
      if (maxGain == -1){
-    //    fprintf(stderr,"\n tid :%d NO positive gain found !!!!", tid);
-        fprintf(stderr,"\n OR Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
-     //pthread_barrier_wait(&(barRefinepart));
+        fprintf(stderr,"\n Last Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
       }
-//     dTable[tid].clear();
+      break;
+   }
 
-   // pthread_mutex_lock(&locks[tid]);
+   InMemoryContainerIterator it;
+   unsigned counter = 0;
+   for (it = readBufMap[tid].begin(); it != readBufMap[tid].end(); ++it) {
+       if (counter >= kBItems)
+          break;
+
+        dTable[tid][it->first] = it->second.size();
+        counter++;
+     } 
+     ComputeBECut(tid, readBufMap[tid]);
+     pthread_barrier_wait(&(barRefinepart));
+     computeDVals(tid, hipart, whereMax, k);
+     pthread_barrier_wait(&(barRefinepart));
+    
+     if(ret == true) {
+        do{
+              gainTable.clear();
+              maxGain = computeGain(tid, hipart, whereMax, k, readBufMap[hipart]);
+	} while(maxGain > 0);
+     }
+     k += dTable[hipart].size();
+     if (maxGain == -1){
+        fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
+          break;
+      }
+    
+     readBufMap[tid].erase(readBufMap[tid].begin(), it);
+    }
      if(ret == true) {
         writePartInfo(tid, hipart, whereMax);
    // pthread_mutex_unlock(&locks[tid]);
      }
+     pthread_barrier_wait(&(barRefinepart));
+     //   ComputeBECut(tid, readBufMap[tid]);
+     //   ComputeBECut(tid, readBufMap[tid]);
 }
-//--------------------------------------------------
-void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts) {
-     refinePart(tid, hipart, tCuts, gWhere, markMax[hipart], markMin[hipart]);
-
-}
-
-//--------------------------------------------------
-void Partitioner::refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin) {
-   }
 //--------------------------------------------------
 void Partitioner::writePartInfo(const unsigned tid, const unsigned hipart, const unsigned whereMax) {
-
      for(std::map<unsigned, unsigned>::const_iterator it = markMax[hipart].begin(); it!=markMax[hipart].end(); ++it){
          unsigned vtx1 = it->first;
          unsigned vtx2 = it->second;
@@ -1000,99 +969,17 @@ void Partitioner::writePartInfo(const unsigned tid, const unsigned hipart, const
           fprintf(stderr,"\nMoving %d to %d from %d ", vtx1, whereMax, hipart);
           fprintf(stderr,"\nMoving %d to %d from %d ", vtx2, hipart, whereMax);
           changeWhere(tid, hipart, whereMax, gWhere, vtx1, vtx2);
-   //  fprintf(stderr,"\nREFINEPART AFTER  where[%d]: %d ", vtx1, gWhere.at(vtx1));
-   //fprintf(stderr,"\nREFINEPART AFTER  where[%d]: %d ", vtx2, gWhere.at(vtx2));
         }
         bndIndMap[hipart].clear();
-       // bndIndMap[whereMax].clear();
+        //bndIndMap[whereMax].clear();
         totalPECuts[hipart] = 0;
        // totalPECuts[whereMax] = 0;
         markMax[hipart].clear();
         markMin[hipart].clear();
         dTable[hipart].clear();
        // dTable[whereMax].clear();
-        //ComputeBECut(hipart);
-        //ComputeBECut(whereMax);
        // if(getWrittenToDisk())
 	 //  refineMap->clear();
-}
-
-//--------------------------------------------------
-void Partitioner::deletebndvert(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax ) {
-  for(auto it = markMax.begin(); it!= markMax.end(); ++it){
-     bndIndMap[hipart].erase(it->first);
-     bndIndMap[whereMax].erase(it->second);
-     fprintf(stderr,"\nDeleting %d, bndIndMap Hipart size %d", it->first, bndIndMap[hipart].size());
-     fprintf(stderr,"\nDeleting %d, bndIndMap whereMax size %d", it->second, bndIndMap[whereMax].size());
-  }
-
-}
-
-//--------------------------------------------------
-unsigned Partitioner::maxBound(const unsigned tid, LookUpTable& bndind ) {
-//TODO: Add a vertex which stores all the vertices with same number of edge cuts and return that vertex
-unsigned currentMax = 0;
-unsigned vtx_max = -1;
-for(auto it = bndind.cbegin(); it != bndind.cend(); ++it ) {
-    if (it ->second.size() > currentMax) {
-        vtx_max = it->first;
-        currentMax = it->second.size();
-    }
-}
-fprintf(stderr, "\nVertex %d occurs %d times as boundary vertex", vtx_max, currentMax);
-
-return vtx_max;
-}
-
-//--------------------------------------------------
-unsigned Partitioner::findMaxGain(const unsigned tid){
-  unsigned maxG = -1;
-  unsigned ct = -1;
-//  unsigned vtx = -1
-  for(auto it = gainTable.begin(); it != gainTable.end(); ++it){
-//	maxG = it->second;
-     fprintf(stderr,"\nit->second: %d MaxG: %d ", it->second, maxG);
-	if(it->second > maxG){
-	   ct = it->first;
-           maxG = it->second;
-	}
-  }
-
-//unsigned vtx_ind = -1;
-/*  if(ct != -1){
-    unsigned dTSize = gainTable.size()/dTable[hipart].size();
-    vtx_ind = ct > dTSize ? dTSize % ct : vtx_ind;
-
-  fprintf(stderr, "\nVertex %d has max Gain of %d ", dTable[hipart][vtx_ind], maxG);
-
-  return dTable[hipart][vtx_ind];
- }
-*/
- 
-  fprintf(stderr, "\nVertex index %d has max Gain of %d ", ct, maxG);
-return ct;
-}
-
-
-//--------------------------------------------------
-unsigned Partitioner::minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart ) {
-//TODO: Add a vertex which stores all the vertices with same number of edge cuts and return that vertex
-unsigned currentMin = 2147483647;  //set it to some highest value initially
-unsigned vtx_min = -1;
-for(auto it = bndind.cbegin(); it != bndind.cend(); ++it ) {
-    //const std::vector<unsigned>& lookwhere = it->second;
-   //If the the vtx_min belongs to the partition being refined (hipart)
- //   if (std::find(lookwhere.begin(), lookwhere.end(), hipart) != lookwhere.end()){
-     // then consider it for swap
-      if (it ->second.size() < currentMin) {
-          vtx_min = it->first;
-          currentMin = it->second.size();
-      }
-  // }
-}
-fprintf(stderr, "\nMin Vertex %d occurs %d times as boundary vertex\n", vtx_min, currentMin);
-
-return vtx_min;
 }
 
 //--------------------------------------------------
@@ -1133,104 +1020,6 @@ void Partitioner::cWriteToInfinimem(const unsigned buffer, const IdType startKey
 }
 
 //--------------------------------------------------
-/*bool Partitioner::refine(const unsigned tid) {
-  return refine(tid, refineMap[tid]);
-}
-*/
-//--------------------------------------------------
-bool Partitioner::refine(const unsigned tid) {
-
-  infinimem_cread_times[tid] -= getTimer();
-  unsigned partition = tid;
-    unsigned partbound = min(totalCombined[tid]-readNext[tid], kBItems); 
-  RecordType* parts = new RecordType[partbound];
- // fprintf(stderr,"\nREFINE tid: %d, totalCombined: %d, readNext[tid]: %d, keys to read: %d \n", tid, totalCombined[tid], readNext[tid], partbound);
- //for(unsigned ckey = readNextInBatch[partition]; ckey < totalCombined[partition]; ckey += batchSize){
-    if (partbound > 0 && readNext[tid] < totalCombined[tid])
-      cio->file_get_batch(tid, readNext[tid], partbound, parts); 
-
-  //  fprintf(stderr,"\nREFINE- tid: %d  BATCHSIZE: %d, Map size: %d, readNext: %d \n", tid, batchSize, refineMap[tid].size(), readNext[tid]);
-    for (unsigned i = 0; i < partbound; i++) {
-      refineMap[tid][parts[i].rank()];
-//      fprintf(stderr,"\nREFINE- TID: %d, Key: %d\t Values: ", tid, parts[i].rank()); 
-
-      for (unsigned k = 0; k < parts[i].nbrs_size(); k++){
-        refineMap[tid][parts[i].rank()].push_back(parts[i].nbrs(k));
-         if(getPartRefine()){
-           dTable[tid][parts[i].rank()] = parts[i].nbrs_size();
-//           fprintf(stderr,"\nREFINE - DTABLE key: %d value: %d\n", parts[i].rank(), parts[i].nbrs_size());
-         }
-  //    fprintf(stderr,"%d\t", parts[i].nbrs(k)); 
-     }
-    }
-    
-//    fprintf(stderr,"\nREFINE - tid: %d, RefineMap size: %d", tid, refineMap[tid].size());
-    readNext[tid] += partbound;
-//    fprintf(stderr,"\nREFINE update-  tid: %d Total Combined: %d, readNext: %d \n", tid, totalCombined[tid], readNext[tid]);
-
-  bool ret = false;
-    if (readNext[tid] < totalCombined[tid]){
-        ret = true;
-  //      fprintf(stderr, "\nREFINE - still reading - tid: %d, readNext: %d, totalCombined: %d, ret: %d \n", tid, readNext[tid], totalCombined[tid], ret);
-    }
-
-  infinimem_cread_times[tid] += getTimer();
-  delete[] parts;
-  return ret;
-}
-
-//--------------------------------------------------
-/*void Partitioner::refineInit(const unsigned tid) {
-  
-        readNext[tid] = 0;
-        totalPECuts[tid] = 0;
-
- // fprintf(stderr,"\nREFINEInit tid: %d, readNextInBatch[tid]: %d \n", tid, readNextInBatch[tid]);
-//  std::map<unsigned, unsigned> bndind;
-}
-*/
-//--------------------------------------------------
-void Partitioner::cread(const unsigned tid) {
- 
-while(true) {
-//  fprintf(stderr, "\nDoRefine: Calling Read\n");
-    bool execLoop;
-    if(!getWrittenToDisk()){
-    // for in-memory reads
-      execLoop = 0;
-    } 
-   else{
-       execLoop = refine(tid);
-    }
-//    fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
-
-//   fprintf(stderr,"\nCREAD getpartRefine: %d\n", getPartRefine());
-    if(execLoop == false) {
-       if(getWrittenToDisk() && !getPartRefine()){
-         ComputeBECut(tid, refineMap[tid]);
-         refineMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
-      }
-       break;
-    }
-
-   // Read the kitems from infinimem and compute the edgecuts for that part
-
-  if(!getPartRefine()){
-    ComputeBECut(tid, refineMap[tid]);
-    refineMap[tid].erase(refineMap[tid].begin(), refineMap[tid].end());
-    }
-  }
-//fprintf(stderr,"\nCREAD - RefineMap %d size: %d\n", tid, refineMap[tid].size());
-
-}
-
-//--------------------------------------------------
-//void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx ) {
-
-//     changeWhere(tid, hipart, gWhere, chVtx);
-//}
-  
-//--------------------------------------------------
 void Partitioner::changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx ) {
      fprintf(stderr,"\nPerm Changing WHERE for %d and %d\n", maxVtx, minVtx);
      where[hipart].at(maxVtx) = gwhere[maxVtx];
@@ -1262,10 +1051,12 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
 
 //--------------------------------------------------
 void Partitioner::addDVals(const unsigned tid) {
+
    for (auto it = readBufMap[tid].begin(); it != readBufMap[tid].end(); ++it) {
-          dTable[tid][it->first] = it->second.size();
+
+        dTable[tid][it->first] = it->second.size();
    }
-   fprintf(stderr,"\nDtable tid %d size %d " , tid, dTable[tid].size());
+//   fprintf(stderr,"\nDtable tid %d size %d " , tid, dTable[tid].size());
 }
 
 //--------------------------------------------------

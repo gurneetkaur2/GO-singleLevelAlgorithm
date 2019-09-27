@@ -52,31 +52,6 @@ std::vector<double> infinimem_cwrite_times;
 
 void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from);
 
-/*class InMemoryReductionState {
-  public:
-  std::vector<InMemoryConstIterator > begins;
-  std::vector<InMemoryConstIterator > ends;
-
-  InMemoryReductionState(unsigned size) : begins(size), ends(size) { }
-};
-*/
-
-struct key {
-    unsigned p1;
-    unsigned p2;
-
-    // Provide a "<" operator that orders keys.
-    // The way it orders them doesn't matter, all that matters is that
-    // it orders them consistently.
-    bool operator<(key const& other) const {
-        if (p1 < other.p1) return true; else
-        if (p1 == other.p1) {
-            if (p2 < other.p2) return true; 
-        }
-
-        return false;
-    }
-};
 
 class Partitioner
 {
@@ -102,8 +77,6 @@ class Partitioner
     void readInit(const unsigned tid);
     bool read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted);
     bool read(const unsigned tid);    
-    void cread(const unsigned tid);    
-    bool refine(const unsigned tid);    
 //    bool refine(const unsigned tid, const IdType& totalCombined);
  
   //  bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
@@ -115,23 +88,17 @@ class Partitioner
     void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
     unsigned maxPECut(const unsigned tid);
-    unsigned maxBound(const unsigned tid, LookUpTable& bndind );
-    unsigned minBound(const unsigned tid, LookUpTable& bndind, const unsigned hipart );
-    void deletebndvert(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax );
     void bRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, const bool ret);
     void bRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const bool ret);
     void inMemRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, const bool ret);
     void inMemRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const bool ret);
 
 
-    void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts, std::vector<unsigned>& where, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin);
-    void refinePart(const unsigned tid, const unsigned hipart, unsigned tCuts);
     void refineInit(const unsigned tid);
     void computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k);
     void updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst);
     unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k, const InMemoryContainer& inMemMap);
     unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const unsigned long long k, const InMemoryContainer& inMemMap);
-     unsigned findMaxGain(const unsigned tid);
 
  //   void changeWhere(const unsigned tid, const unsigned hipart, const unsigned chVtx );
    void writePartInfo(const unsigned tid, const unsigned hipart, const unsigned whereMax );
@@ -160,7 +127,6 @@ class Partitioner
     pthread_barrier_t barRefinepart;
 
     InMemoryContainer* readBufMap;
-    InMemoryContainer* refineMap;
     IdType* totalCombined;
     IdType* readNext; 
     //std::map<unsigned, unsigned>* bndindmap;

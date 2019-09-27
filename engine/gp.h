@@ -47,7 +47,6 @@ class GraphParts
     IdType numLines;
     std::vector<unsigned> end_read;
     std::vector<double> mparts_times;
-    std::vector<double> combine_times;
     std::vector<double> refine_times;
 
     std::vector<std::string> fileList;
@@ -57,7 +56,6 @@ class GraphParts
     pthread_barrier_t barRefine;
 
     friend void* doMParts(void* arg);
-    friend void* doCombine(void* arg);
     friend void* doRefine(void* arg);
     friend void* doInMemoryRefine(void* arg);
 
