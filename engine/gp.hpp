@@ -141,7 +141,7 @@ void* doRefine(void* arg)
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
        
-  	fprintf(stderr, "thread %u finished Combining\n", tid);
+  	fprintf(stderr, "\nthread %u finished Combining\n", tid);
 	return NULL;
 
 }
