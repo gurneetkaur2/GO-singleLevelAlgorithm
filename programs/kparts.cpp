@@ -19,7 +19,6 @@
 #include <google/malloc_extension.h>
 
 using namespace std;
-static std::string outputPrefix = "";
 
 //Meta data for partition processing
 /*typedef struct __partitionInfo {
@@ -37,6 +36,7 @@ PartitionInfo *pi = NULL;
 // Let the game begin 
 //-------------------------------------------------
 
+static std::string outputPrefix = "";
 class KParts : public GraphParts
 {
   static thread_local std::ofstream ofile;
@@ -44,36 +44,50 @@ class KParts : public GraphParts
   public:
     
   //  void* readEdgeLists(const unsigned tid, graph_t origG, RecordType* edgeLists, const std::string& input)
-    void* createMParts(const unsigned tid, const std::string& input, IdType nVertices)
+    void* createMParts(const unsigned tid, const std::string& input, const unsigned lineId, const unsigned hiDegree) 
     {
-/*	std::stringstream inputStream(input);
-        unsigned to, from;
- //       std::vector<IdType> from;
-        inputStream >> to;
+	std::stringstream inputStream(input);
+        std::vector<unsigned> from;
+        unsigned hid = 0; 
+        unsigned token;
+//       std::vector<IdType> from;
  
-        while(inputStream >> from){
-             fprintf(stderr,"\nTO: %zu FROM; %zu ", to, from);
-              writeBuf(tid, to, from);
+        while(inputStream >> token){
+	    from.push_back(token);
+         }
+          for(unsigned i = 0; i < from.size(); ++i){
+    //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
+            if(from.size() < hiDegree){
+              writeBuf(tid, lineId, from[i], hid);
+             }
+            else{
+              hid = from.size();
+              writeBuf(tid, lineId, from[i], hid);
+             }
         }
-  */    return NULL;
+      return NULL;
   }
 
   void* beforeRefine(const unsigned tid) {
-    ofile.open(outputPrefix + std::to_string(tid));
-    stime = 0.0;
+    //ofile.open(outputPrefix + std::to_string(tid));
+    //stime = 0.0;
     return NULL;
   }
     void* refine(const unsigned tid, const unsigned& rank, const std::vector<unsigned>& nbrs) {
 //	uint64_t total = std::accumulate(nbrs.begin(), nbrs.end(), 0);
-        stime -= getTimer();
+//        stime -= getTimer();
   //  	ofile << rank << " " << total << std::endl;
-    	ofile << rank << std::endl;
-    	stime += getTimer();     
+ //   	ofile << rank << std::endl;
+ //   	stime += getTimer();     
           return NULL;
     }
 
-   void* afterRefine(const unsigned tid) {
-    ofile.close();
+   void* afterRefine(const unsigned tid, const unsigned nVertices) {
+  //  ofile.open(outputPrefix + std::to_string(tid));
+    stime = 0.0;
+    std::string fileName = outputPrefix + std::to_string(tid);
+    printParts(tid, fileName.c_str());
+//    ofile.close();
     this->subtractRefineTimes(tid, stime);
     return NULL;
   }
@@ -131,9 +145,9 @@ void readEdgeLists(EdgeList* edgeLists, string fileName, IdType nVertices, IdTyp
 int main(int argc, char** argv)
 {
   KParts kp;
-  if (argc != 8)
+  if (argc != 9)
   {
-std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
     return 0;
   }
 
@@ -141,11 +155,12 @@ std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <nparts> 
   fileName = argv[1];
   IdType nvertices = atoi(argv[2]);
   IdType nedges = atoi(argv[3]);
-  unsigned nthreads = atoi(argv[4]);
-  unsigned batchSize = atoi(argv[5]);
-  unsigned kitems = atoi(argv[6]);
-  unsigned nparts = atoi(argv[4]);
-  outputPrefix = argv[7];
+  unsigned nthreads = atoi(argv[5]);
+  unsigned batchSize = atoi(argv[6]);
+  unsigned kitems = atoi(argv[7]);
+  unsigned nparts = atoi(argv[5]);
+  unsigned hDegree = atoi(argv[4]);
+  outputPrefix = argv[8];
   unsigned edgesPerMPart = (nedges/nparts) + 1;
 
   fprintf(stderr, "total partitions: %zu\n", nparts);
@@ -155,7 +170,7 @@ std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <nparts> 
   
   assert(batchSize > 0);
 
-  kp.init(fileName, nvertices, nedges, nthreads, nparts, batchSize, kitems);
+  kp.init(fileName, nvertices, nedges, hDegree, nthreads, nparts, batchSize, kitems);
   fprintf(stderr,"\nCreating partitions ..");
   double runTime = -getTimer();
   kp.run(); 

@@ -128,7 +128,7 @@ void* doRefine(void* arg)
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
 	time_refine += getTimer();
 
-        fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d\n", tid, hipart, whereMax);
+        fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
 	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.bRefine(tid, hipart, whereMax, ret);
@@ -140,6 +140,20 @@ void* doRefine(void* arg)
 	  mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
+	pthread_barrier_wait(&(mr->barRefine));
+       /*if(tid == 0){
+        partitioner.setTotalCuts(tid);
+        fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
+	}*/
+	pthread_barrier_wait(&(mr->barRefine));
+        partitioner.readClear(tid); 
+	partitioner.refineInit(tid);
+        partitioner.cread(tid);
+	pthread_barrier_wait(&(mr->barRefine));
+       if(tid == 0){
+        partitioner.setTotalCuts(tid);
+       fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+	}
        
   	fprintf(stderr, "\nthread %u finished Combining\n", tid);
 	return NULL;
@@ -158,11 +172,15 @@ void* doInMemoryRefine(void* arg) {
 	  Partitioner& partitioner = mr->partitioner;
 
 	  partitioner.initiateInMemoryRefine(tid); 
-       partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
 	time_refine += getTimer();
-	pthread_barrier_wait(&(mr->barRefine));
-       if(tid == 0)
-       fprintf(stderr,"\n Total EdgeCuts Before: %d\n", partitioner.countTotalPECut(tid));
+//	  mr->refineInit(tid);
+        partitioner.setTotalCuts(tid);
+//       partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
+//	pthread_barrier_wait(&(mr->barRefine));
+//       if(tid == 0){
+//        partitioner.setTotalCuts(tid);
+ //      fprintf(stderr,"\n Total EdgeCuts Before: %d\n", partitioner.countTotalPECut(tid));
+//	}
 	time_refine = -getTimer();
 	  mr->refineInit(tid);
  
@@ -189,11 +207,22 @@ void* doInMemoryRefine(void* arg) {
 	mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
-   //    partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
 	pthread_barrier_wait(&(mr->barRefine));
-       if(tid == 0)
-        fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-  	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
+       if(tid == 0){
+        partitioner.setTotalCuts(tid);
+        fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
+	}
+	pthread_barrier_wait(&(mr->barRefine));
+          mr->refineInit(tid);
+          partitioner.setTotalCuts(tid);
+        partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
+    //    partitioner.ctotalEdgeCuts(tid);
+	pthread_barrier_wait(&(mr->barRefine));
+       if(tid == 0){
+        partitioner.setTotalCuts(tid);
+        fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+  	}
+	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
 	 
 	return NULL;
 }
@@ -220,6 +249,8 @@ void GraphParts::run()
         flushResidues_times.resize(nThreads, 0.0);
         infinimem_read_times.resize(nParts, 0.0);
         infinimem_write_times.resize(nThreads, 0.0);
+        infinimem_cread_times.resize(nParts, 0.0);
+        infinimem_cwrite_times.resize(nParts, 0.0);
         localCombinedPairs.resize(nThreads, uint64_t(0));
  
  	init_time += getTimer();
@@ -282,6 +313,12 @@ void GraphParts::run()
 
 	auto infinimem_write_time = max_element(std::begin(infinimem_write_times), std::end(infinimem_write_times));
   	std::cout << " InfiniMem Write time: " << *infinimem_write_time << " (msec)" << std::endl;
+       
+        auto infinimem_cread_time = max_element(std::begin(infinimem_cread_times), std::end(infinimem_cread_times));
+  	std::cout << " InfiniMem Sequential Read time: " << *infinimem_cread_time << " (msec)" << std::endl;
+
+	auto infinimem_cwrite_time = max_element(std::begin(infinimem_cwrite_times), std::end(infinimem_cwrite_times));
+  	std::cout << " InfiniMem Sequential Write time: " << *infinimem_cwrite_time << " (msec)" << std::endl;
 
 	std::cout << std::endl;
 }

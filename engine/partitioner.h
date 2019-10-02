@@ -75,8 +75,12 @@ class Partitioner
     void sCopy(const unsigned tid, std::vector<unsigned>& bndind, std::vector<unsigned>& bndptr, std::vector<unsigned>& partitionBndind, std::vector<unsigned>& partitionBndPtr);
 
     void readInit(const unsigned tid);
+    void readClear(const unsigned tid);
     bool read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted);
     bool read(const unsigned tid);    
+    void readMemMap(const unsigned tid);
+    void ctotalEdgeCuts(const unsigned tid);
+
 //    bool refine(const unsigned tid, const IdType& totalCombined);
  
   //  bool getNextMinKey(InMemoryReductionState* state, InMemoryContainer* record);
@@ -95,6 +99,9 @@ class Partitioner
 
 
     void refineInit(const unsigned tid);
+    bool refine(const unsigned tid);
+    void cread(const unsigned tid);
+
     void computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k);
     void updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst);
     unsigned computeGain(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k, const InMemoryContainer& inMemMap);
@@ -123,10 +130,12 @@ class Partitioner
     bool getPartRefine() { return partRefine; }
     IdType getTotalPECuts(const unsigned tid) { return totalPECuts[tid]; }
     IdType setTotalPECuts(const unsigned tid) { totalPECuts[tid] = 0; }
+    void setTotalCuts(const unsigned tid) { if (tid == 0) totalCuts = 0; }
    
     pthread_barrier_t barRefinepart;
 
     InMemoryContainer* readBufMap;
+    InMemoryContainer* refineMap;
     IdType* totalCombined;
     IdType* readNext; 
     //std::map<unsigned, unsigned>* bndindmap;
@@ -160,6 +169,7 @@ class Partitioner
 //    unsigned nparts;  
     bool firstInit;
     IdType* totalPECuts; 
+    IdType* totalPCuts; 
     IdType* nItems; 
     IdType* nEdges; 
     std::vector<unsigned>* where;
