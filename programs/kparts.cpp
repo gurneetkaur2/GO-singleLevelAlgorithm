@@ -145,9 +145,9 @@ void readEdgeLists(EdgeList* edgeLists, string fileName, IdType nVertices, IdTyp
 int main(int argc, char** argv)
 {
   KParts kp;
-  if (argc != 9)
+  if (argc != 10)
   {
-std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <hDegree> <nThreads> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
     return 0;
   }
 
@@ -156,11 +156,11 @@ std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <hDegree>
   IdType nvertices = atoi(argv[2]);
   IdType nedges = atoi(argv[3]);
   unsigned nthreads = atoi(argv[5]);
-  unsigned batchSize = atoi(argv[6]);
-  unsigned kitems = atoi(argv[7]);
-  unsigned nparts = atoi(argv[5]);
+  unsigned batchSize = atoi(argv[7]);
+  unsigned kitems = atoi(argv[8]);
+  unsigned nparts = atoi(argv[6]);
   unsigned hDegree = atoi(argv[4]);
-  outputPrefix = argv[8];
+  outputPrefix = argv[9];
   unsigned edgesPerMPart = (nedges/nparts) + 1;
 
   fprintf(stderr, "total partitions: %zu\n", nparts);

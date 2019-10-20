@@ -31,18 +31,18 @@ void  protobuf_AddDesc_edgeList_2eproto();
 void protobuf_AssignDesc_edgeList_2eproto();
 void protobuf_ShutdownFile_edgeList_2eproto();
 
-class RecordType;
+class EdgeList;
 
 // ===================================================================
 
-class RecordType : public ::google::protobuf::Message {
+class EdgeList : public ::google::protobuf::Message {
  public:
-  RecordType();
-  virtual ~RecordType();
+  EdgeList();
+  virtual ~EdgeList();
 
-  RecordType(const RecordType& from);
+  EdgeList(const EdgeList& from);
 
-  inline RecordType& operator=(const RecordType& from) {
+  inline EdgeList& operator=(const EdgeList& from) {
     CopyFrom(from);
     return *this;
   }
@@ -56,17 +56,17 @@ class RecordType : public ::google::protobuf::Message {
   }
 
   static const ::google::protobuf::Descriptor* descriptor();
-  static const RecordType& default_instance();
+  static const EdgeList& default_instance();
 
-  void Swap(RecordType* other);
+  void Swap(EdgeList* other);
 
   // implements Message ----------------------------------------------
 
-  RecordType* New() const;
+  EdgeList* New() const;
   void CopyFrom(const ::google::protobuf::Message& from);
   void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const RecordType& from);
-  void MergeFrom(const RecordType& from);
+  void CopyFrom(const EdgeList& from);
+  void MergeFrom(const EdgeList& from);
   void Clear();
   bool IsInitialized() const;
 
@@ -89,17 +89,10 @@ class RecordType : public ::google::protobuf::Message {
 
   // accessors -------------------------------------------------------
 
-  // required uint64 rank = 1;
-  inline bool has_rank() const;
-  inline void clear_rank();
-  static const int kRankFieldNumber = 1;
-  inline ::google::protobuf::uint64 rank() const;
-  inline void set_rank(::google::protobuf::uint64 value);
-
-  // repeated uint64 nbrs = 2;
+  // repeated uint64 nbrs = 1;
   inline int nbrs_size() const;
   inline void clear_nbrs();
-  static const int kNbrsFieldNumber = 2;
+  static const int kNbrsFieldNumber = 1;
   inline ::google::protobuf::uint64 nbrs(int index) const;
   inline void set_nbrs(int index, ::google::protobuf::uint64 value);
   inline void add_nbrs(::google::protobuf::uint64 value);
@@ -108,77 +101,52 @@ class RecordType : public ::google::protobuf::Message {
   inline ::google::protobuf::RepeatedField< ::google::protobuf::uint64 >*
       mutable_nbrs();
 
-  // @@protoc_insertion_point(class_scope:RecordType)
+  // @@protoc_insertion_point(class_scope:EdgeList)
  private:
-  inline void set_has_rank();
-  inline void clear_has_rank();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
-  ::google::protobuf::uint64 rank_;
   ::google::protobuf::RepeatedField< ::google::protobuf::uint64 > nbrs_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
 
   friend void  protobuf_AddDesc_edgeList_2eproto();
   friend void protobuf_AssignDesc_edgeList_2eproto();
   friend void protobuf_ShutdownFile_edgeList_2eproto();
 
   void InitAsDefaultInstance();
-  static RecordType* default_instance_;
+  static EdgeList* default_instance_;
 };
 // ===================================================================
 
 
 // ===================================================================
 
-// RecordType
+// EdgeList
 
-// required uint64 rank = 1;
-inline bool RecordType::has_rank() const {
-  return (_has_bits_[0] & 0x00000001u) != 0;
-}
-inline void RecordType::set_has_rank() {
-  _has_bits_[0] |= 0x00000001u;
-}
-inline void RecordType::clear_has_rank() {
-  _has_bits_[0] &= ~0x00000001u;
-}
-inline void RecordType::clear_rank() {
-  rank_ = GOOGLE_ULONGLONG(0);
-  clear_has_rank();
-}
-inline ::google::protobuf::uint64 RecordType::rank() const {
-  return rank_;
-}
-inline void RecordType::set_rank(::google::protobuf::uint64 value) {
-  set_has_rank();
-  rank_ = value;
-}
-
-// repeated uint64 nbrs = 2;
-inline int RecordType::nbrs_size() const {
+// repeated uint64 nbrs = 1;
+inline int EdgeList::nbrs_size() const {
   return nbrs_.size();
 }
-inline void RecordType::clear_nbrs() {
+inline void EdgeList::clear_nbrs() {
   nbrs_.Clear();
 }
-inline ::google::protobuf::uint64 RecordType::nbrs(int index) const {
+inline ::google::protobuf::uint64 EdgeList::nbrs(int index) const {
   return nbrs_.Get(index);
 }
-inline void RecordType::set_nbrs(int index, ::google::protobuf::uint64 value) {
+inline void EdgeList::set_nbrs(int index, ::google::protobuf::uint64 value) {
   nbrs_.Set(index, value);
 }
-inline void RecordType::add_nbrs(::google::protobuf::uint64 value) {
+inline void EdgeList::add_nbrs(::google::protobuf::uint64 value) {
   nbrs_.Add(value);
 }
 inline const ::google::protobuf::RepeatedField< ::google::protobuf::uint64 >&
-RecordType::nbrs() const {
+EdgeList::nbrs() const {
   return nbrs_;
 }
 inline ::google::protobuf::RepeatedField< ::google::protobuf::uint64 >*
-RecordType::mutable_nbrs() {
+EdgeList::mutable_nbrs() {
   return &nbrs_;
 }
 

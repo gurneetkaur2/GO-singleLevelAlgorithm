@@ -142,7 +142,7 @@ class Partitioner
     LookUpTable* bndIndMap;
     LookUpTable* lookUpTable;
     InMemTable* dTable;
-    InMemTable gainTable;
+ //   InMemTable gainTable;
 
     std::set<unsigned>* fetchBatchIds;
     std::set<unsigned>* fetchPIds;
@@ -153,6 +153,7 @@ class Partitioner
     std::vector<unsigned long long>* readNextInBatch;
     std::vector<bool>* batchesCompleted;
     std::vector<bool>* pIdsCompleted;
+    std::vector<bool> pIdCompleted;
     std::vector<unsigned>* keysPerBatch;
     std::map<unsigned, unsigned>* markMax;
     std::map<unsigned, unsigned>* markMin;
@@ -178,6 +179,7 @@ class Partitioner
 //    std::vector<IdType>* adjncy;  
 
     IdType* totalKeysInFile;
+//    IdType* totalKeysRead;
     std::vector<pthread_mutex_t> locks;
     FileIO<RecordType> *io;  //GK
     FileIO<RecordType> *cio;  //GK

@@ -67,6 +67,14 @@ IdType max(IdType a, IdType b) {
   return a>=b ? a : b;
 }
 
+//------------------------------------------------------------------
+std::set<unsigned>::iterator select_random(const std::set<unsigned>& s, size_t n) {
+  auto it = std::begin(s);
+  // 'advance' the iterator n times
+  std::advance(it,n);
+  return it;
+
+}
 /*************************************************************************
 * This function returns the log2(x)
 **************************************************************************/

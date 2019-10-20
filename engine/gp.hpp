@@ -116,7 +116,9 @@ void* doRefine(void* arg)
 
 	//  fprintf(stderr, "\nDoRefine: Initializing read parameter\n");
 	mr->readInit(tid);
+        int k = 0;
        // for(unsigned i = 0; i < mr->nParts; i++){
+//	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
 	    unsigned hipart = tid;
 	    unsigned whereMax = *it; 
@@ -124,6 +126,32 @@ void* doRefine(void* arg)
  	       partitioner.pIdsCompleted[tid][*it] = true;
                continue;
 	     }
+	/*while(partitioner.fetchPIds[tid].size() > 0){
+            if(tid >= mr->nThreads)
+		break;
+           
+	    unsigned hipart = tid;	
+            unsigned whereMax = -1;
+            srand(time(0) );
+	    int number = rand() % partitioner.fetchPIds[tid].size();
+            auto it = std::begin(partitioner.fetchPIds[tid]);
+            advance (it, number);
+            if ((tid + 1) >= mr->nThreads)
+               //if(partitioner.fetchPIds[tid].size() > 0)
+		whereMax = *it;
+		//whereMax = partitioner.fetchPIds[tid][number];
+            else 
+	       whereMax = tid + 1; 
+
+	    //unsigned whereMax = *it; 
+	    if(whereMax == tid){
+ 	       partitioner.pIdsCompleted[tid][whereMax] = true;
+               partitioner.fetchPIds[tid].erase(whereMax);
+              // if(partitioner.fetchPIds[tid].size() > 0)
+		//whereMax = partitioner.fetchPIds[tid][number];
+	        //  whereMax = *partitioner.fetchPIds[tid].begin();
+               continue;
+	     }*/
      //   partitioner.fetchPIds.insert(std::pair<std::pair<unsigned, unsigned>, bool>(std::make_pair(hipart, whereMax), 0);
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
 	time_refine += getTimer();
@@ -133,14 +161,23 @@ void* doRefine(void* arg)
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.bRefine(tid, hipart, whereMax, ret);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
-
-           // fprintf(stderr,"\n WhereMax: %d, hipart: %d, PIDS: %d ", whereMax, hipart, partitioner.pIdsCompleted[tid][*it]);
+ /*	    partitioner.pIdsCompleted[whereMax][hipart] = true;
+            partitioner.fetchPIds[tid].erase(whereMax);
+      
+fprintf(stderr,"\nTID: %d FetchPIDs size: %d ", tid, partitioner.fetchPIds[tid].size());
+          if(partitioner.fetchPIds[tid].size()==1)
+		break;
+   */     //TODO:: may be wait before starting next iter?
+//	pthread_barrier_wait(&(mr->barRefine));
+        fprintf(stderr,"\nTID %d finished iter %d  using disk", tid,++k);
+       if(tid ==0) partitioner.pIdStarted.clear();
   }
+	fprintf(stderr, "thread %u waiting for others to finish Refine\n", tid);
 	pthread_barrier_wait(&(mr->barRefine));
 	  mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
-	pthread_barrier_wait(&(mr->barRefine));
+//	pthread_barrier_wait(&(mr->barRefine));
        /*if(tid == 0){
         partitioner.setTotalCuts(tid);
         fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
@@ -183,7 +220,7 @@ void* doInMemoryRefine(void* arg) {
 //	}
 	time_refine = -getTimer();
 	  mr->refineInit(tid);
- 
+          int k = 0; 
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
 	    unsigned hipart = tid;
 	    unsigned whereMax = *it; 
@@ -195,14 +232,21 @@ void* doInMemoryRefine(void* arg) {
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
 	time_refine += getTimer();
 
-        fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d\n", tid, hipart, whereMax);
+/* 	partitioner.pIdsCompleted[hipart][whereMax] = true;
+        if(ret == 0 && partitioner.pIdsCompleted[whereMax][hipart] == true){
+ 	       partitioner.pIdsCompleted[hipart][whereMax] = true;
+		continue;
+	}
+  */      fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
 	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.inMemRefine(tid, hipart, whereMax, ret);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
+        fprintf(stderr,"\nTID %d finished iter %d  in Memory", tid,++k);
 
   }
         
+	fprintf(stderr, "thread %u waiting for others to finish InMemory Refine\n", tid);
 	pthread_barrier_wait(&(mr->barRefine));
 	mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
