@@ -113,6 +113,7 @@ class Partitioner
 
     void changeWhere(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gwhere, const unsigned maxVtx, const unsigned minVtx);
     void printParts(const unsigned tid, std::string outputPrefix);
+    void clearMemorystructures(const unsigned tid);
     void releaseInMemStructures();
     void releaseReadPartStructures();
     void shutdown();
@@ -133,6 +134,8 @@ class Partitioner
     void setTotalCuts(const unsigned tid) { if (tid == 0) totalCuts = 0; }
    
     pthread_barrier_t barRefinepart;
+    pthread_barrier_t barEdgeCuts;
+    pthread_barrier_t barCompute;
 
     InMemoryContainer* readBufMap;
     InMemoryContainer* refineMap;

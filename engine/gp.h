@@ -24,6 +24,7 @@ class GraphParts
     virtual void run();
     void init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
+    void setRefiners(const unsigned refiners);
     void writeInit(const unsigned buffer);
     void writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree);
     bool read(const unsigned tid);
@@ -54,6 +55,9 @@ class GraphParts
     pthread_barrier_t barMParts;
     pthread_barrier_t barRead;
     pthread_barrier_t barRefine;
+    pthread_barrier_t barWriteInfo;
+    pthread_barrier_t barAfterRefine;
+    pthread_barrier_t barClear;
 
     friend void* doMParts(void* arg);
     friend void* doRefine(void* arg);

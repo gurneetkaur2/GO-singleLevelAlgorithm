@@ -42,7 +42,7 @@ void* doMParts(void* arg)
 	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
-	//std::cout << "DoCoarsen tid, *mr:" << tid << "\n";  //GK
+//	fprintf(stderr, "\n DoMparts tid %d  ", tid);  //GK
 
 	mr->writeInit(tid);
 
@@ -67,7 +67,7 @@ void* doMParts(void* arg)
         }
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-        //        fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
+       //         fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
            if(lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
@@ -160,6 +160,13 @@ void* doRefine(void* arg)
 	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.bRefine(tid, hipart, whereMax, ret);
+            if(ret == true) {
+        // fprintf(stderr,"\nTID %d going to write part ", tid);
+               partitioner.writePartInfo(tid, hipart, whereMax);
+          // pthread_mutex_unlock(&locks[tid]);
+            }
+	pthread_barrier_wait(&(mr->barWriteInfo));
+            partitioner.clearMemorystructures(tid);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
  /*	    partitioner.pIdsCompleted[whereMax][hipart] = true;
             partitioner.fetchPIds[tid].erase(whereMax);
@@ -170,10 +177,10 @@ fprintf(stderr,"\nTID: %d FetchPIDs size: %d ", tid, partitioner.fetchPIds[tid].
    */     //TODO:: may be wait before starting next iter?
 //	pthread_barrier_wait(&(mr->barRefine));
         fprintf(stderr,"\nTID %d finished iter %d  using disk", tid,++k);
-       if(tid ==0) partitioner.pIdStarted.clear();
+      // if(tid ==0) partitioner.pIdStarted.clear();
   }
-	fprintf(stderr, "thread %u waiting for others to finish Refine\n", tid);
-	pthread_barrier_wait(&(mr->barRefine));
+	fprintf(stderr, "\nthread %u waiting for others to finish Refine\n", tid);
+	pthread_barrier_wait(&(mr->barAfterRefine));
 	  mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
@@ -182,7 +189,7 @@ fprintf(stderr,"\nTID: %d FetchPIDs size: %d ", tid, partitioner.fetchPIds[tid].
         partitioner.setTotalCuts(tid);
         fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
 	}*/
-	pthread_barrier_wait(&(mr->barRefine));
+	pthread_barrier_wait(&(mr->barClear));
         partitioner.readClear(tid); 
 	partitioner.refineInit(tid);
         partitioner.cread(tid);
@@ -208,6 +215,7 @@ void* doInMemoryRefine(void* arg) {
 	  GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	  Partitioner& partitioner = mr->partitioner;
 
+         fprintf(stderr,"\nTID %d started ", tid);
 	  partitioner.initiateInMemoryRefine(tid); 
 	time_refine += getTimer();
 //	  mr->refineInit(tid);
@@ -241,22 +249,32 @@ void* doInMemoryRefine(void* arg) {
 	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.inMemRefine(tid, hipart, whereMax, ret);
+        // fprintf(stderr,"\nTID %d back after inMem Refine ret: %d ", tid, ret);
+          //  pthread_barrier_wait(&(mr->barRefine));
+            if(ret == true) {
+        // fprintf(stderr,"\nTID %d going to write part ", tid);
+               partitioner.writePartInfo(tid, hipart, whereMax);
+          // pthread_mutex_unlock(&locks[tid]);
+            }
+	pthread_barrier_wait(&(mr->barWriteInfo));
+            partitioner.clearMemorystructures(tid);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
         fprintf(stderr,"\nTID %d finished iter %d  in Memory", tid,++k);
+       //if(tid ==0) partitioner.pIdStarted.clear();
 
   }
         
-	fprintf(stderr, "thread %u waiting for others to finish InMemory Refine\n", tid);
-	pthread_barrier_wait(&(mr->barRefine));
+	fprintf(stderr, "\nthread %u waiting for others to finish InMemory Refine\n", tid);
+	pthread_barrier_wait(&(mr->barAfterRefine));
 	mr->afterRefine(tid, mr->nVertices);
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
-	pthread_barrier_wait(&(mr->barRefine));
+/*	pthread_barrier_wait(&(mr->barRefine));
        if(tid == 0){
         partitioner.setTotalCuts(tid);
         fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
 	}
-	pthread_barrier_wait(&(mr->barRefine));
+*/	pthread_barrier_wait(&(mr->barClear));
           mr->refineInit(tid);
           partitioner.setTotalCuts(tid);
         partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
@@ -286,7 +304,7 @@ void GraphParts::run()
 	fprintf(stderr, "Partitioning input for Parallel Reads\n");
 	partitionInputForParallelReads();
 
-	end_read.resize(nThreads, 0.0);
+	end_read.resize(nThreads, 0);
 	mparts_times.resize(nThreads, 0.0);
 	refine_times.resize(nParts, 0.0);
         writeBuf_times.resize(nThreads, 0.0);
@@ -399,7 +417,7 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 	kBItems = kItems;
 
 
-	//  setRefiners(std::min(nThreads, nRefiners));
+	setRefiners(std::min(nThreads, nParts));
 	//TODO:need to check if I need this --  nParts = std::min(nThreads, nParts);
 
 	std::cout << "nVertices: " << nVertices << std::endl;
@@ -411,13 +429,22 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 	std::cout << "topk: " << kBItems << std::endl;
 
 	pthread_barrier_init(&barMParts, NULL, nThreads);
-	pthread_barrier_init(&barRead, NULL, nThreads);
-	pthread_barrier_init(&barRefine, NULL, nThreads);
+	pthread_barrier_init(&barRead, NULL, nParts);
+	pthread_barrier_init(&barRefine, NULL, nParts);
+	pthread_barrier_init(&barWriteInfo, NULL, nParts);
+	pthread_barrier_init(&barClear, NULL, nParts);
+	pthread_barrier_init(&barAfterRefine, NULL, nParts);
 }
 
 //--------------------------------------------  GK
 void GraphParts::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree = 0){
 	partitioner.writeBuf(tid, to, from, hidegree);
+}
+
+//--------------------------------------------
+void GraphParts::setRefiners(const unsigned nparts) {
+       nParts = nparts;             
+    
 }
 
 //--------------------------------------------
