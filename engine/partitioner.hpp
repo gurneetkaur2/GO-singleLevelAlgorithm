@@ -751,11 +751,11 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
   int maxvtx = -1, minvtx = -1;
   unsigned vtx_ind = -1;
 //  int countIter = 0;
- fprintf(stderr,"\nComputeGAIN tid: %d whereMax %d ", tid, whereMax );
+// fprintf(stderr,"\nComputeGAIN tid: %d whereMax %d ", tid, whereMax );
 //Go through each key in the selected partition to be refined and update the gain 
   for (auto it = dTable[hipart].begin(); it != dTable[hipart].end(); ++it) {
       unsigned src = it->first; //maxvtx;
-       fprintf(stderr, "\ntid %d Next Iter  SRC: %d ----- ", tid, src );
+//       fprintf(stderr, "\ntid %d Next Iter  SRC: %d ----- ", tid, src );
   //     countIter++;
       std::map<unsigned, unsigned>::const_iterator it_max = markMax.find(src);
       if(it_max != markMax.end()){ 
@@ -765,14 +765,14 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
            auto it_map = inMemMap.find(src);
            if(it_map != inMemMap.end()){
          if(dTable[whereMax].size() > 0 ){
-       fprintf(stderr, "\nBREAKING dTable size check TId %d ----- " , tid);
+  //     fprintf(stderr, "\nBREAKING dTable size check TId %d ----- " , tid);
          auto begin = std::next(dTable[whereMax].begin(), k);
-       fprintf(stderr, "\nTId %d dTable whereMax Begin: %d, dTable Size %d ----- " , tid, k, dTable[whereMax].size());
-            fprintf(stderr,"\nTID %d DTable[%d] values ", tid, whereMax);
-         for (auto it_hi = begin; it_hi != dTable[whereMax].end(); ++it_hi) {
+ //      fprintf(stderr, "\nTId %d dTable whereMax Begin: %d, dTable Size %d ----- " , tid, k, dTable[whereMax].size());
+   //         fprintf(stderr,"\nTID %d DTable[%d] values ", tid, whereMax);
+     /*    for (auto it_hi = begin; it_hi != dTable[whereMax].end(); ++it_hi) {
             unsigned d = it_hi->first;
             fprintf(stderr,"\t %d ", d);
-         }
+         }*/
          for (auto it_hi = begin; it_hi != dTable[whereMax].end(); ++it_hi) {
             unsigned dst = it_hi->first;
             bool connect = 0;
@@ -786,14 +786,14 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
 	    }
 	   else{
                 ct++;
-       fprintf(stderr, "\nTID %d BREAKING here ----- DTable Size %d ", tid, dTable[whereMax].size() );
+   //    fprintf(stderr, "\nTID %d BREAKING here ----- DTable Size %d ", tid, dTable[whereMax].size() );
                if (std::find(it_map->second.begin(), it_map->second.end(), dst) == it_map->second.end()){
                   // if(gWhere[src] != gWhere[dst]){
 			connect = 0;
                  }      
                  else
                        connect = 1;
-         fprintf(stderr,"\ntid: %d SRC: %d DST: %d CONNECT: %d ct: %d ", tid, src, dst, connect, ct);
+     //    fprintf(stderr,"\ntid: %d SRC: %d DST: %d CONNECT: %d ct: %d ", tid, src, dst, connect, ct);
                  int currGain = -1;
                   if(!connect)      
              	     currGain = dsrc + ddst;
@@ -801,14 +801,14 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
            	  else
              	     currGain = dsrc + ddst - 2;
               	    //gainTable[ct] = dsrc + ddst - 2;
-       fprintf(stderr, "\nTID %d CGain: %d MaxG: %d ----- ", tid, currGain, maxG );
+       //fprintf(stderr, "\nTID %d CGain: %d MaxG: %d ----- ", tid, currGain, maxG );
              if(currGain > maxG){
                maxG = currGain;
                maxvtx = src;
                minvtx = dst;
                vtx_ind = ct;
              }
-      fprintf(stderr,"\nTID %d GAIN for vertex %d with dst %d is %d\n", tid, src, dst, currGain);
+   //   fprintf(stderr,"\nTID %d GAIN for vertex %d with dst %d is %d\n", tid, src, dst, currGain);
               }
             }
             else{
@@ -831,7 +831,7 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
  //   }
     return maxG;
    }
-fprintf(stderr,"\nTID %d returning -1 ", tid);
+//fprintf(stderr,"\nTID %d returning -1 ", tid);
 return -1;
 }
 
@@ -877,12 +877,12 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
      }
      else {
         fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
-     fprintf(stderr,"\n TID %d Erasing in memory buffer records ", tid);
+  //   fprintf(stderr,"\n TID %d Erasing in memory buffer records ", tid);
      readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
        break;
      } 
      k += dTable[hipart].size();
-    fprintf(stderr,"\nLast Finished computing Gain TID %d ", tid);
+   // fprintf(stderr,"\nLast Finished computing Gain TID %d ", tid);
      if (maxGain == -1 && (reach_end + kBItems) >= readBufMap[tid].size()){
         fprintf(stderr,"\n OR Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
       }
@@ -891,7 +891,7 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
      cWrite(tid, readBufMap[tid].size(), readBufMap[tid].end());
       }
      readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
-    fprintf(stderr,"\nLast TID %d is going to break out of while ", tid);
+  //  fprintf(stderr,"\nLast TID %d is going to break out of while ", tid);
      break;
      }
 
@@ -935,7 +935,7 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
             //  gainTable.clear();
               maxGain = computeGain(tid, hipart, whereMax, k, readBufMap[hipart]);
 	} while(maxGain > 0);
-    fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems);
+    //fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems);
      }
      k += dTable[hipart].size();  // dtable and readBuf should be same size dTable[hipart].size();
      if (maxGain == -1 &&  (reach_end + kBItems) >= readBufMap[tid].size()){
@@ -944,25 +944,18 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
      cWrite(tid, kBItems, it);
 
      readBufMap[tid].erase(readBufMap[tid].begin(), it);
-    fprintf(stderr,"\nTID %d is going to break out of while in Refine with maxgain -1", tid);
+  //  fprintf(stderr,"\nTID %d is going to break out of while in Refine with maxgain -1", tid);
           break;
       }
      //Write combined records to a new partition    
      if(ret == true) {
      cWrite(tid, kBItems, it);
      }
-     fprintf(stderr,"\n TID %d Erasing in memory buffer records ", tid);
+    // fprintf(stderr,"\n TID %d Erasing in memory buffer records ", tid);
      readBufMap[tid].erase(readBufMap[tid].begin(), it);
      }
 
-     fprintf(stderr,"\nTID %d is out of while with ret %d ", tid, ret);
-   // pthread_mutex_lock(&locks[tid]);
-/*     pthread_barrier_wait(&(barRefinepart));
-     if(ret == true) {
-        writePartInfo(tid, hipart, whereMax);
-   // pthread_mutex_unlock(&locks[tid]);
-     }
-*/
+  //   fprintf(stderr,"\nTID %d is out of while with ret %d ", tid, ret);
 }
 
 //--------------------------------------------------
@@ -980,7 +973,6 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
  //  if(readBufMap[tid].size() <= kBItems){
   int maxGain = -1;
      if((reach_end + kBItems) >= readBufMap[tid].size()){
-   fprintf(stderr,"\ntid %d Reaching END inMem ", tid);
    for (auto it = std::next(readBufMap[tid].begin(), reach_end); it != readBufMap[tid].end(); ++it) {
         dTable[tid][it->first] = it->second.size();
         reach_end++;
@@ -1003,18 +995,18 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
     //   break;
     // }
      k += dTable[hipart].size();
-    fprintf(stderr,"\nLASt Finished computing Gain TID %d ", tid);
+   // fprintf(stderr,"\nLASt Finished computing Gain TID %d ", tid);
      if (maxGain == -1){
         fprintf(stderr,"\n Last Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
       }
-    fprintf(stderr,"\nTID %d is going to break out of while in memory", tid);
+  //  fprintf(stderr,"\nTID %d is going to break out of while in memory", tid);
      pthread_barrier_wait(&(barCompute));
       break;
    }
 
    InMemoryContainerIterator it;
    unsigned counter = 0;
-        fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
+    //    fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
   // fprintf(stderr,"\ntid %d STarting next Iter ", tid);
    for (it = readBufMap[tid].begin(); it != readBufMap[tid].end(); std::advance(it,reach_end)) {
        if (counter >= kBItems)
@@ -1038,10 +1030,10 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 	} while(maxGain > 0);
      }
      k += dTable[hipart].size(); //reach_end;
-    fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d, MaxGain: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems, maxGain);
+   // fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d, MaxGain: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems, maxGain);
      if (maxGain == -1 && (reach_end + kBItems) >= readBufMap[tid].size() ){
         fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
-    fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
+  //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
     //    if(readBufMap[tid].size() <= kBItems)
           break;
       }
@@ -1050,15 +1042,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 //	continue;
   //  }
     }
-     fprintf(stderr,"\nTID %d is out of while with ret %d  in memory", tid, ret);
-/*     pthread_barrier_wait(&(barRefinepart));
-     if(ret == true) {
-        writePartInfo(tid, hipart, whereMax);
-   // pthread_mutex_unlock(&locks[tid]);
-     }
-*/    // pthread_barrier_wait(&(barRefinepart));
-     //   ComputeBECut(tid, readBufMap[tid]);
-     //   ComputeBECut(tid, readBufMap[tid]);
+    // fprintf(stderr,"\nTID %d is out of while with ret %d  in memory", tid, ret);
 }
 //--------------------------------------------------
 void Partitioner::writePartInfo(const unsigned tid, const unsigned hipart, const unsigned whereMax) {
