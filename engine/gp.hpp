@@ -215,7 +215,6 @@ void* doInMemoryRefine(void* arg) {
 	  GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	  Partitioner& partitioner = mr->partitioner;
 
-         fprintf(stderr,"\nTID %d started ", tid);
 	  partitioner.initiateInMemoryRefine(tid); 
 	time_refine += getTimer();
 //	  mr->refineInit(tid);
@@ -252,7 +251,7 @@ void* doInMemoryRefine(void* arg) {
         // fprintf(stderr,"\nTID %d back after inMem Refine ret: %d ", tid, ret);
           //  pthread_barrier_wait(&(mr->barRefine));
             if(ret == true) {
-        // fprintf(stderr,"\nTID %d going to write part ", tid);
+         //fprintf(stderr,"\nTID %d going to write part ", tid);
                partitioner.writePartInfo(tid, hipart, whereMax);
           // pthread_mutex_unlock(&locks[tid]);
             }
