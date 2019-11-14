@@ -672,7 +672,7 @@ unsigned Partitioner::maxPECut(const unsigned tid) {
 void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, unsigned src, unsigned dst){
 //Go through adjacency (boundary) vertices of the masked vertices and update their DVals
   auto it_map = readBufMap[hipart].find(src);
- fprintf(stderr,"\nUpdateDVAL src: %d  size %d ", src, it_map->second.size());
+// fprintf(stderr,"\nUpdateDVAL src: %d  size %d ", src, it_map->second.size());
   for ( auto vit = it_map->second.begin(); vit != it_map->second.end(); ++vit ) {
        unsigned adjvtx = *vit;
          //fprintf(stderr,"\nCHECK VIT %d ", *vit);
@@ -708,7 +708,7 @@ void Partitioner::updateDVals(const unsigned tid, const unsigned hipart, const u
 void Partitioner::computeDVals(const unsigned tid, const unsigned hipart, const unsigned whereMax, const unsigned long long k) {
 //Go through each key in the selected partition to be refined and update the DVals
   auto begin = std::next(dTable[hipart].begin(), k);
-// fprintf(stderr,"\nTID %d ComputeDVAL BEGIN: %d , k: %d ", tid, *begin, k);
+//fprintf(stderr,"\nTID %d ComputeDVAL BEGIN: %d , k: %d ", tid, *begin, k);
   for (auto it = begin; it != dTable[hipart].end(); ) {
       unsigned src = it->first;
       std::map<unsigned, unsigned>::const_iterator it_max = markMax[hipart].find(src);
@@ -751,7 +751,7 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
   int maxvtx = -1, minvtx = -1;
   unsigned vtx_ind = -1;
 //  int countIter = 0;
-// fprintf(stderr,"\nComputeGAIN tid: %d whereMax %d ", tid, whereMax );
+// fprintf(stderr,"\nComputeGAIN tid: %d whereMax %d dTable[Hipart].Size: %d", tid, whereMax, dTable[hipart].size() );
 //Go through each key in the selected partition to be refined and update the gain 
   for (auto it = dTable[hipart].begin(); it != dTable[hipart].end(); ++it) {
       unsigned src = it->first; //maxvtx;
@@ -793,7 +793,7 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
                  }      
                  else
                        connect = 1;
-     //    fprintf(stderr,"\ntid: %d SRC: %d DST: %d CONNECT: %d ct: %d ", tid, src, dst, connect, ct);
+   //      fprintf(stderr,"\ntid: %d SRC: %d DST: %d CONNECT: %d ct: %d ", tid, src, dst, connect, ct);
                  int currGain = -1;
                   if(!connect)      
              	     currGain = dsrc + ddst;
@@ -808,7 +808,7 @@ unsigned Partitioner::computeGain(const unsigned tid, const unsigned hipart, con
                minvtx = dst;
                vtx_ind = ct;
              }
-   //   fprintf(stderr,"\nTID %d GAIN for vertex %d with dst %d is %d\n", tid, src, dst, currGain);
+ //     fprintf(stderr,"\nTID %d GAIN for vertex %d with dst %d is %d\n", tid, src, dst, currGain);
               }
             }
             else{
@@ -969,6 +969,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 
   unsigned long long k = 0;  // beginning of the next iteration
   unsigned reach_end = 0;
+  int loopGain = 0;
   while(true){
  //  if(readBufMap[tid].size() <= kBItems){
   int maxGain = -1;
@@ -1004,6 +1005,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
       break;
    }
 
+     do{
    InMemoryContainerIterator it;
    unsigned counter = 0;
     //    fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
@@ -1019,7 +1021,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
  //  fprintf(stderr,"\ntid %d Compute EC ", tid);
      ComputeBECut(tid, readBufMap[tid]);
  //  fprintf(stderr,"\ntid %d barrier before DVAL ", tid);
-    // pthread_barrier_wait(&(barEdgeCuts));
+    pthread_barrier_wait(&(barEdgeCuts));
  //  fprintf(stderr,"\ntid %d Compute DVal ", tid);
      computeDVals(tid, hipart, whereMax, k);
     
@@ -1030,17 +1032,27 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 	} while(maxGain > 0);
      }
      k += dTable[hipart].size(); //reach_end;
-   // fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d, MaxGain: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems, maxGain);
-     if (maxGain == -1 && (reach_end + kBItems) >= readBufMap[tid].size() ){
+    fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd: %d, MaxGain: %d \n ", tid, readBufMap[tid].size(), reach_end, maxGain);
+     if (maxGain > 0) loopGain = 0;
+     if (maxGain == -1 ){
+         loopGain++;
+         if (loopGain >= 50 ){
+        fprintf(stderr,"\n tid %d Not able to find valid moves with whereMax partition %d ***** ", tid, whereMax);
+  //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
+    //    if(readBufMap[tid].size() <= kBItems)
+          break;
+         }
+     }
+
+      } while(reach_end <= batchSize);// && (reach_end + kBItems) <= readBufMap[tid].size());
+
+     if (maxGain == -1 && loopGain >= 50) {//reach_end >= readBufMap[tid].size() ){
         fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
   //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
     //    if(readBufMap[tid].size() <= kBItems)
           break;
       }
-      //else{
-       //  readBufMap[tid].erase(readBufMap[tid].begin(), it);
-//	continue;
-  //  }
+
     }
     // fprintf(stderr,"\nTID %d is out of while with ret %d  in memory", tid, ret);
 }
