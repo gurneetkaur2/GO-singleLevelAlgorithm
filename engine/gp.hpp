@@ -1,6 +1,6 @@
 #include "gp.h"
 #include "partitioner.hpp"
-#include "../programs/graph.h"
+//#include "../programs/graph.h"
 #include <utility> // for std::pair
 #include <fstream>
 #include <iostream> //GK
@@ -141,13 +141,8 @@ void* doRefine(void* arg)
 	pthread_barrier_wait(&(mr->barWriteInfo));
             partitioner.clearMemorystructures(tid);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
- /*	    partitioner.pIdsCompleted[whereMax][hipart] = true;
-            partitioner.fetchPIds[tid].erase(whereMax);
-      
-fprintf(stderr,"\nTID: %d FetchPIDs size: %d ", tid, partitioner.fetchPIds[tid].size());
-          if(partitioner.fetchPIds[tid].size()==1)
-		break;
-   */     //TODO:: may be wait before starting next iter?
+   
+       //TODO:: may be wait before starting next iter?
 //	pthread_barrier_wait(&(mr->barRefine));
 	time_refine += getTimer();
         fprintf(stderr,"\nTID %d finished iter %d  using disk", tid,++k);
@@ -197,6 +192,9 @@ void* doInMemoryRefine(void* arg) {
 	  Partitioner& partitioner = mr->partitioner;
 
 	  partitioner.initiateInMemoryRefine(tid); 
+	pthread_barrier_wait(&(mr->barRefine));
+        if(tid == 0)  //Need this condition when used in multi thread envt.
+	    partitioner.releaseInMemStructures();
 	time_refine += getTimer();
 //	  mr->refineInit(tid);
         partitioner.setTotalCuts(tid);
@@ -220,7 +218,7 @@ void* doInMemoryRefine(void* arg) {
         // fprintf(stderr,"\nTID %d back after inMem Refine ret: %d ", tid, ret);
           //  pthread_barrier_wait(&(mr->barRefine));
             if(ret == true) {
-         //fprintf(stderr,"\nTID %d going to write part ", tid);
+//         fprintf(stderr,"\nTID %d going to write part ", tid);
                partitioner.writePartInfo(tid, hipart, whereMax);
           // pthread_mutex_unlock(&locks[tid]);
             }
@@ -244,7 +242,7 @@ void* doInMemoryRefine(void* arg) {
 
 	pthread_barrier_wait(&(mr->barClear));
           mr->refineInit(tid);
-          partitioner.setTotalCuts(tid);
+         // partitioner.setTotalCuts(tid);
         partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
     //    partitioner.ctotalEdgeCuts(tid);
 	pthread_barrier_wait(&(mr->barRefine));
@@ -300,7 +298,7 @@ void GraphParts::run()
 	 if(!partitioner.getWrittenToDisk()) {
 	    fprintf(stderr, "Running InMemoryRefiners\n");
 	    parallelExecute(doInMemoryRefine, this, nParts);
-	    partitioner.releaseInMemStructures();
+//	    partitioner.releaseInMemStructures();
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");

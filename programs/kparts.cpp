@@ -2,12 +2,12 @@
 //#define MAX_REAL_WORD_SIZE 32
 
 #define USE_NUMERICAL_HASH
-#include "edgeList.pb.h"
+//#include "edgeList.pb.h"
 #include "recordtype.pb.h"
-#include "adjacencyList.pb.h"
+//#include "adjacencyList.pb.h"
 
 #include "../engine/gp.hpp"
-#include "graph.h"
+//#include "graph.h"
 //#include "../engine/infinimem/hm.hpp"
 #include <iostream>
 #include <sstream>

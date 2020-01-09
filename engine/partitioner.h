@@ -7,7 +7,7 @@
 #include <vector>
 #include <stack>
 #include <queue>
-#include "../programs/graph.h"
+//#include "../programs/graph.h"
 
 /*#ifdef USE_STRING_HASH
 #define hashKey(str) stringHash(str)
@@ -78,6 +78,7 @@ class Partitioner
     void readClear(const unsigned tid);
     bool read(const unsigned tid, InMemoryContainer& readBufMap, std::vector<unsigned>& keysPerBatch, LookUpTable& lookUpTable, std::set<unsigned>& fetchBatchIds, std::vector<unsigned long long>& readNextInBatch, std::vector<bool>& batchesCompleted);
     bool read(const unsigned tid);    
+    bool readInMem(const unsigned tid);    
     void readMemMap(const unsigned tid);
     void ctotalEdgeCuts(const unsigned tid);
 
