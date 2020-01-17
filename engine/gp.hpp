@@ -43,8 +43,9 @@ void* doMParts(void* arg)
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
 //	fprintf(stderr, "\n DoMparts tid %d  ", tid);  //GK
-
+   
 	mr->writeInit(tid);
+//	fprintf(stderr, "\n After writeinit tid %d  ", tid);  //GK
 
 	std::ifstream infile(mr->inputFileName.c_str()); 
 	assert(infile.is_open());
@@ -70,7 +71,7 @@ void* doMParts(void* arg)
        //         fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
            if(lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
 		time_mparts -= getTimer();
-		mr->createMParts(tid, line, ++lineId, mr->hDegree);     
+		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
       //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
 	  }
@@ -370,7 +371,7 @@ void GraphParts::partitionInputForParallelReads() {
 }
 
 //--------------------------------------------
-void GraphParts::init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
+void GraphParts::init(const std::string input, const std::string type, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
 
 	inputFileName = input;
 	std::cout << "Input file name: " << inputFileName << std::endl;
@@ -381,11 +382,21 @@ void GraphParts::init(const std::string input, const unsigned nvertices, const u
 	nVertices = nvertices;
 	nEdges = nedges;
  	hDegree = hdegree;
+        inType = type;
 	nThreads = nthreads;
 	nParts = nparts;
 	batchSize = bSize;
 	kBItems = kItems;
+        
+        if (inType == "adj" && numLines != nVertices){
+		fprintf(stderr, "\nNo. of Vertices not correct\n");
+                assert(false);
+	}
 
+        if (inType == "edge" && numLines != nEdges){
+		fprintf(stderr, "\nNo. of Edges not correct\n");
+                assert(false);
+	}
 
 	setRefiners(std::min(nThreads, nParts));
 	//TODO:need to check if I need this --  nParts = std::min(nThreads, nParts);

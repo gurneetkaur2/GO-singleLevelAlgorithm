@@ -174,6 +174,7 @@ void Partitioner::writeInit(const unsigned tid) {
            gWhere.push_back(-1);
          } 
   }
+    fprintf(stderr,"\n TID %d WriteInit ", tid);
 
 }
 

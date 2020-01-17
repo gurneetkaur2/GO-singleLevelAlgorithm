@@ -15,14 +15,14 @@ void* doCoarsen(void* arg);
 class GraphParts
 {
   public:
-    virtual void* createMParts(const unsigned tid, const std::string& input, const unsigned lineId, const unsigned hiDegree) = 0; 
+    virtual void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) = 0; 
     virtual void* refine(const unsigned tid, const unsigned& rank, const std::vector<unsigned>& nbrs) = 0; 
     virtual void* beforeRefine(const unsigned tid) { };
     virtual void* afterRefine(const unsigned tid, const unsigned nVertices) { };
          
     // System provided default; overridable by user
     virtual void run();
-    void init(const std::string input, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
+    void init(const std::string input, const std::string type, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
     void setRefiners(const unsigned refiners);
     void writeInit(const unsigned buffer);
@@ -66,6 +66,7 @@ class GraphParts
   private:
     // Variables
     std::string inputFileName;
+    std::string inType;
     size_t bytesPerFile;
     size_t linesPerThread;
     Partitioner partitioner;

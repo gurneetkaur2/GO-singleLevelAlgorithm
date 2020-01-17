@@ -4,11 +4,8 @@
 #define USE_NUMERICAL_HASH
 //#include "edgeList.pb.h"
 #include "recordtype.pb.h"
-//#include "adjacencyList.pb.h"
 
 #include "../engine/gp.hpp"
-//#include "graph.h"
-//#include "../engine/infinimem/hm.hpp"
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -20,18 +17,6 @@
 
 using namespace std;
 
-//Meta data for partition processing
-/*typedef struct __partitionInfo {
-  IdType lbEdgeCount;
-  IdType ubEdgeCount;
-  IdType edgeCount;
-
-  IdType lbIndex;
-  IdType ubIndex;
-  IdType indexCount;
-} PartitionInfo;
-PartitionInfo *pi = NULL;
-*/
 //-------------------------------------------------
 // Let the game begin 
 //-------------------------------------------------
@@ -44,17 +29,32 @@ class KParts : public GraphParts
   public:
     
   //  void* readEdgeLists(const unsigned tid, graph_t origG, RecordType* edgeLists, const std::string& input)
-    void* createMParts(const unsigned tid, const std::string& input, const unsigned lineId, const unsigned hiDegree) 
+    void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) 
     {
 	std::stringstream inputStream(input);
         std::vector<unsigned> from;
         unsigned hid = 0; 
-        unsigned token;
+        unsigned token, to;
 //       std::vector<IdType> from;
- 
+        if (type == "edge")
+        	inputStream >> to;
+
         while(inputStream >> token){
 	    from.push_back(token);
          }
+        if (type == "edge"){
+          for(unsigned i = 0; i < from.size(); ++i){
+    //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
+            if(from.size() < hiDegree){
+              writeBuf(tid, to, from[i], hid);
+             }
+            else{
+              hid = from.size();
+              writeBuf(tid, to, from[i], hid);
+             }
+           }
+        }
+        else{
           for(unsigned i = 0; i < from.size(); ++i){
     //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
             if(from.size() < hiDegree){
@@ -64,7 +64,8 @@ class KParts : public GraphParts
               hid = from.size();
               writeBuf(tid, lineId, from[i], hid);
              }
-        }
+           }
+          }
       return NULL;
   }
 
@@ -103,74 +104,45 @@ void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<
  // to[0] += from[0];
   return NULL;
 }
-/*
-//-------------------------------------------------
-void readEdgeLists(EdgeList* edgeLists, string fileName, IdType nVertices, IdType nEdges) {
-  std::ifstream infile(fileName);
-  assert(infile.is_open());
-  string line;
-  
-  IdType k, i;
-  xadj = (IdType *) malloc((nVertices + 1) * sizeof(IdType));
-  adjncy = (IdType *) malloc(((nEdges * 2) + 1) * sizeof(IdType));
 
-  xadj[0]=0, k=0, i=0;
-  while (getline(infile,line)){
-        std::istringstream iss(line);
-        IdType to, from, edge;
-  
-        iss >> to;
-        edge = to;
-        adjncy[k] = edge - 1;
-        fprintf(stderr,"\nEdgeLists TO: %d", to);
-        fprintf(stderr,"\ndst: %d, adjncy: %d, edge-1: %d\n", to, adjncy[k], edge-1);
-        k++;
-        while (iss >> from) {
-              edge = from;
-              edgeLists[to].add_nbrs(from);
-              totalEdges++;
-              fprintf(stderr,"\tFROM: %d", from);
-              adjncy[k] = edge - 1;
-              fprintf(stderr,"\nsrc: %d, adjncy: %d, edge-1: %d\n", from, adjncy[k], edge-1);
-              k++;
-             // from.push_back(value);
-        }
-        xadj[i+1] = k;
-        fprintf(stderr,"xadj: %d, k: %d, i: %d\n", xadj[i+1], k, i);
-        i++;
-  }
-}
-*/
+
 //-------------------------------------------------
 int main(int argc, char** argv)
 {
   KParts kp;
-  if (argc != 9)
+  if (argc != 10)
   {
-std::cout << "Usage: " << argv[0] << " <fileName> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
     return 0;
   }
 
   std::string fileName = "";
+  std::string fileType = "";
   fileName = argv[1];
-  IdType nvertices = atoi(argv[2]);
-  IdType nedges = atoi(argv[3]);
-  unsigned nthreads = atoi(argv[5]);
-  unsigned batchSize = atoi(argv[6]);
-  unsigned kitems = atoi(argv[7]);
-  unsigned nparts = atoi(argv[5]);
-  unsigned hDegree = atoi(argv[4]);
-  outputPrefix = argv[8];
-  unsigned edgesPerMPart = (nedges/nparts) + 1;
+  fileType = argv[2]; 
+  IdType nvertices = atoi(argv[3]);
+  IdType nedges = atoi(argv[4]);
+  unsigned nthreads = atoi(argv[6]);
+  unsigned batchSize = atoi(argv[7]);
+  unsigned kitems = atoi(argv[8]);
+  unsigned nparts = atoi(argv[6]);
+  unsigned hDegree = atoi(argv[5]);
+  outputPrefix = argv[9];
+//  unsigned edgesPerMPart = (nedges/nparts) + 1;
+
+  if(fileType != "edge" && fileType != "adj" ){
+     fprintf(stderr, "\nFile Type %s not accepted\n", fileType.c_str());
+     return 0;
+  }
 
   fprintf(stderr, "total partitions: %zu\n", nparts);
   fprintf(stderr, "total edges: %zu\n", nedges);
-  fprintf(stderr, "Edges per partition: %zu\n", edgesPerMPart);
+  //fprintf(stderr, "Edges per partition: %zu\n", edgesPerMPart);
 
   
   assert(batchSize > 0);
 
-  kp.init(fileName, nvertices, nedges, hDegree, nthreads, nparts, batchSize, kitems);
+  kp.init(fileName, fileType, nvertices, nedges, hDegree, nthreads, nparts, batchSize, kitems);
   fprintf(stderr,"\nCreating partitions ..");
   double runTime = -getTimer();
   kp.run(); 
