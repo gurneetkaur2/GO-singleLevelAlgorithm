@@ -13,6 +13,7 @@
 
 #include <sys/mman.h>
 
+  static int commentLines = 0; 
 //--------------------------------------------
 // Helper NON-member Functions
 // Facade for BSP style parallel execution for Coarseners and then Refiners
@@ -54,11 +55,10 @@ void* doMParts(void* arg)
         unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
-        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
+//        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
 	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
         
 	std::string line;
- 
        if(tid > 0){
         //   infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	   infile.seekg(std::ios::beg);
@@ -68,8 +68,31 @@ void* doMParts(void* arg)
         }
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-       //         fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
-           if(lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
+          if (line[0] == '#' || line[0] == '%'){
+              commentLines++;
+              std::getline(infile, line, '\n');
+          }
+
+        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid + commentLines; //4, 7, 9
+
+       if(tid > 0){
+        //  need to set the start and end reads incase there are comments in the file 
+	   infile.seekg(std::ios::beg);
+    	    for(int i=0; i < lineId+commentLines; ++i){  //remove -1 if starting from 0
+        	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+            }
+              std::getline(infile, line, '\n');
+        }
+//                fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
+           if(mr->inType == "adj" && lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
+
+		time_mparts -= getTimer();
+		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
+	        time_mparts += getTimer();
+      //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
+	  }
+          else if(mr->inType == "edge" && lineId <= mr->nEdges && lineId <= mr->end_read[tid]){
+
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
@@ -80,7 +103,7 @@ void* doMParts(void* arg)
         }
 
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
-	  fprintf(stderr, "thread %u waiting for others to finish work\n", tid);
+	  fprintf(stderr, "thread %u waiting for others to finish work lineId %d \n", tid, lineId);
 	//copy the local partition to global 
 
 	time_mparts -= getTimer();
@@ -389,12 +412,12 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	kBItems = kItems;
         
         if (inType == "adj" && numLines != nVertices){
-		fprintf(stderr, "\nNo. of Vertices not correct\n");
+		fprintf(stderr, "\nNo. of Vertices %d not correct numlines %d \n", nVertices, numLines);
                 assert(false);
 	}
 
         if (inType == "edge" && numLines != nEdges){
-		fprintf(stderr, "\nNo. of Edges not correct\n");
+		fprintf(stderr, "\nNo. of Edges %d not correct\n", numLines);
                 assert(false);
 	}
 

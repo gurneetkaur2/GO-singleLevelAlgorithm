@@ -918,6 +918,7 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
       }
      readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
   //  fprintf(stderr,"\nLast TID %d is going to break out of while ", tid);
+    // fprintf(stderr,"\n Reach_end %d --------", reach_end);
      break;
      }
 
@@ -1064,20 +1065,6 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 	} while(maxGain > 0);
      }
      k += dTable[hipart].size(); //reach_end;
-  //  fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd: %d, MaxGain: %d \n ", tid, readBufMap[tid].size(), reach_end, maxGain);
-  /*   if (maxGain > 0) loopGain = 0;
-     if (maxGain == -1 ){
-         loopGain++;
-         if (loopGain >= 50 ){
-        fprintf(stderr,"\n tid %d Not able to find valid moves with whereMax partition %d ***** ", tid, whereMax);
-  //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
-    //    if(readBufMap[tid].size() <= kBItems)
-          break;
-         }
-     }
-
-      } while(reach_end <= batchSize);// && (reach_end + kBItems) <= readBufMap[tid].size());
-*/
    //  if (maxGain == -1 && loopGain >= 50) {//reach_end >= readBufMap[tid].size() ){
      if (maxGain == -1 && (reach_end)  >= refineMap[tid].size() ){
     //    fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** refine Map Size %d", hipart, whereMax, refineMap[tid].size());
