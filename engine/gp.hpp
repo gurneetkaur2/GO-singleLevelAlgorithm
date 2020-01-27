@@ -4,6 +4,7 @@
 #include <utility> // for std::pair
 #include <fstream>
 #include <iostream> //GK
+#include <numeric>
 #include <pthread.h>
 #include <atomic>
 #include <vector>
@@ -55,7 +56,7 @@ void* doMParts(void* arg)
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
-	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
+	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d, Type: %s\n", mr->nVertices, mr->nEdges, mr->inType.c_str());
         
 	std::string line;
  
@@ -66,21 +67,29 @@ void* doMParts(void* arg)
         	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
             }
         }
+   //     fprintf(stderr,"\n Type : %s \n", mr->inType.c_str());
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-       //         fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d \n", tid, lineId+1, mr->end_read[tid]);
-           if(lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
+    //            fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
+           if(mr->inType == "adj" && lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
+
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
       //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
+	  }
+          else if(mr->inType == "edge" && lineId <= mr->end_read[tid]){
+
+		time_mparts -= getTimer();
+		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
+	        time_mparts += getTimer();
 	  }
           else
             break;
         }
 
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
-	  fprintf(stderr, "thread %u waiting for others to finish work\n", tid);
+	  fprintf(stderr, "thread %u waiting for others to finish work lineId %d \n", tid, lineId);
 	//copy the local partition to global 
 
 	time_mparts -= getTimer();
@@ -375,7 +384,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 
 	inputFileName = input;
 	std::cout << "Input file name: " << inputFileName << std::endl;
-	numLines = getNumLines(inputFileName);
+//	numLines = getNumLines(inputFileName);
 	//  fprintf(stderr,"\nINIT NumLines: %zu\n", numLines);
 
 	//nInMemParts and nParts are same
@@ -387,14 +396,21 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	nParts = nparts;
 	batchSize = bSize;
 	kBItems = kItems;
-        
+  
+  if(inType == "adj")
+     numLines = nVertices;
+               
+  if(inType == "edge")
+     numLines = nEdges;
+                                    
+                                          
         if (inType == "adj" && numLines != nVertices){
-		fprintf(stderr, "\nNo. of Vertices not correct\n");
+		fprintf(stderr, "\nNo. of Vertices %d not correct numlines %d \n", nVertices, numLines);
                 assert(false);
 	}
 
         if (inType == "edge" && numLines != nEdges){
-		fprintf(stderr, "\nNo. of Edges not correct\n");
+		fprintf(stderr, "\nNo. of Edges %d not correct\n", numLines);
                 assert(false);
 	}
 
