@@ -29,40 +29,40 @@ class KParts : public GraphParts
   public:
 
   //  void* readEdgeLists(const unsigned tid, graph_t origG, RecordType* edgeLists, const std::string& input)
-  void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) 
-  {
-    std::stringstream inputStream(input);
-    std::vector<unsigned> from;
-    std::map<unsigned, unsigned> keys;
-    unsigned hid = 0; 
-    unsigned token, to;
-    if (type == "edge")
-      inputStream >> to;
+    void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) 
+    {
+	std::stringstream inputStream(input);
+        std::vector<unsigned> from;
+        unsigned hid = 0; 
+        unsigned token, to;
+//       std::vector<IdType> from;
 
-    while(inputStream >> token){
-      from.push_back(token);
-    }
-    if (type == "edge"){
+        if (type == "edge"){
+        	inputStream >> to;
+        }
+
+        while(inputStream >> token){
+	    from.push_back(token);
+         }
+        if (type == "edge"){
+          for(unsigned i = 0; i < from.size(); ++i){
+    //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
+            if(from.size() < hiDegree){
+              writeBuf(tid, to, from[i], hid);
+             }
+            else{
+              hid = from.size();
+              writeBuf(tid, to, from[i], hid);
+             }
+           }
+        }
+
+ //   if (type == "adj") {
+      else {
       for(unsigned i = 0; i < from.size(); ++i){
         //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
-        if(from.size() < hiDegree){
-          writeBuf(tid, to, from[i], hid);
-        }
-        else{
-          hid = from.size();
-          writeBuf(tid, to, from[i], hid);
-        }
-      }
-    }
-
-    if (type == "adj") {
-      while(inputStream >> token){
-        from.push_back(token);
-      }
-      for(unsigned i = 0; i < from.size(); ++i){
-        //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
-        if(from.size() < hiDegree){
-          writeBuf(tid, lineId, from[i], hid);
+         if(from.size() < hiDegree){
+              writeBuf(tid, lineId, from[i], hid);
         }
         else{
           hid = from.size();
@@ -135,8 +135,8 @@ int main(int argc, char** argv)
   //  unsigned edgesPerMPart = (nedges/nparts) + 1;
 
   if(fileType != "edge" && fileType != "adj" ){
-    fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
-    return 0;
+     fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
+     return 0;
   }
 
   fprintf(stderr, "total partitions: %zu\n", nparts);
