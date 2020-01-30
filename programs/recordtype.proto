@@ -1,0 +1,5 @@
+
+message RecordType {
+  required uint64 rank = 1;
+  repeated uint64 nbrs = 3;
+}
