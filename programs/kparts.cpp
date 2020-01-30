@@ -29,40 +29,56 @@ class KParts : public GraphParts
   public:
 
   //  void* readEdgeLists(const unsigned tid, graph_t origG, RecordType* edgeLists, const std::string& input)
-    void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) 
-    {
-	std::stringstream inputStream(input);
-        std::vector<unsigned> from;
-        unsigned hid = 0; 
-        unsigned token, to;
-//       std::vector<IdType> from;
+  void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) 
+  {
+    std::stringstream inputStream(input);
+    std::vector<unsigned> from;
+    unsigned hid = 0; 
+    unsigned token, to;
+    //       std::vector<IdType> from;
+    std::map<unsigned, unsigned> keys;
 
-        if (type == "edge"){
-        	inputStream >> to;
-        }
+    if (type == "edge"){
+      inputStream >> to;
+      inputStream >> token;
+      std::map<unsigned, unsigned>::iterator it_to = keys.find(to);
 
-        while(inputStream >> token){
-	    from.push_back(token);
-         }
-        if (type == "edge"){
-          for(unsigned i = 0; i < from.size(); ++i){
-    //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
-            if(from.size() < hiDegree){
-              writeBuf(tid, to, from[i], hid);
-             }
-            else{
-              hid = from.size();
-              writeBuf(tid, to, from[i], hid);
-             }
-           }
-        }
+      // This map is just to calculate the hidegree
+      if(it_to != keys.end()){
+        keys[to] = it_to->second + 1;
 
- //   if (type == "adj") {
+        if((it_to->second + 1) > hiDegree)
+          hid = it_to->second;
+      }
       else {
+        keys[to] = 1;
+      }
+
+      writeBuf(tid, to, token, hid);
+    }
+
+/*    if (type == "edge"){
       for(unsigned i = 0; i < from.size(); ++i){
         //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
-         if(from.size() < hiDegree){
-              writeBuf(tid, lineId, from[i], hid);
+        if(from.size() < hiDegree){
+          writeBuf(tid, to, token, hid);
+        }
+        else{
+          hid = from.size();
+          writeBuf(tid, to, token, hid);
+        }
+      }
+    }
+*/
+    //   if (type == "adj") {
+    else {
+      while(inputStream >> token){
+        from.push_back(token);
+      }
+      for(unsigned i = 0; i < from.size(); ++i){
+        //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
+        if(from.size() < hiDegree){
+          writeBuf(tid, lineId, from[i], hid);
         }
         else{
           hid = from.size();
@@ -96,64 +112,64 @@ class KParts : public GraphParts
     this->subtractRefineTimes(tid, stime);
     return NULL;
   }
-};
+  };
 
-thread_local std::ofstream KParts::ofile;
-thread_local double KParts::stime;
+  thread_local std::ofstream KParts::ofile;
+  thread_local double KParts::stime;
 
-void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from) {
-  //  assert(to.size() == 1);
-  //  assert(from.size() == 1);
-  to.insert(std::end(to), std::begin(from), std::end(from));
-  // to[0] += from[0];
-  return NULL;
-}
+  void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from) {
+    //  assert(to.size() == 1);
+    //  assert(from.size() == 1);
+    to.insert(std::end(to), std::begin(from), std::end(from));
+    // to[0] += from[0];
+    return NULL;
+  }
 
 
-//-------------------------------------------------
-int main(int argc, char** argv)
-{
-  KParts kp;
-  if (argc != 10)
+  //-------------------------------------------------
+  int main(int argc, char** argv)
   {
-    std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+    KParts kp;
+    if (argc != 10)
+    {
+      std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+      return 0;
+    }
+
+    std::string fileName = "";
+    std::string fileType = "";
+    fileName = argv[1];
+    fileType = argv[2]; 
+    IdType nvertices = atoi(argv[3]);
+    IdType nedges = atoi(argv[4]);
+    unsigned nthreads = atoi(argv[6]);
+    unsigned batchSize = atoi(argv[7]);
+    unsigned kitems = atoi(argv[8]);
+    unsigned nparts = atoi(argv[6]);
+    unsigned hDegree = atoi(argv[5]);
+    outputPrefix = argv[9];
+    //  unsigned edgesPerMPart = (nedges/nparts) + 1;
+
+    if(fileType != "edge" && fileType != "adj" ){
+      fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
+      return 0;
+    }
+
+    fprintf(stderr, "total partitions: %zu\n", nparts);
+    fprintf(stderr, "total edges: %zu\n", nedges);
+    //fprintf(stderr, "Edges per partition: %zu\n", edgesPerMPart);
+
+
+    assert(batchSize > 0);
+
+    kp.init(fileName, fileType, nvertices, nedges, hDegree, nthreads, nparts, batchSize, kitems);
+    fprintf(stderr,"\nCreating partitions ..");
+    double runTime = -getTimer();
+    kp.run(); 
+    runTime += getTimer();
+
+    std::cout << endl << "Main::Run time : " << runTime << " (msec)" << std::endl;
+
     return 0;
   }
-
-  std::string fileName = "";
-  std::string fileType = "";
-  fileName = argv[1];
-  fileType = argv[2]; 
-  IdType nvertices = atoi(argv[3]);
-  IdType nedges = atoi(argv[4]);
-  unsigned nthreads = atoi(argv[6]);
-  unsigned batchSize = atoi(argv[7]);
-  unsigned kitems = atoi(argv[8]);
-  unsigned nparts = atoi(argv[6]);
-  unsigned hDegree = atoi(argv[5]);
-  outputPrefix = argv[9];
-  //  unsigned edgesPerMPart = (nedges/nparts) + 1;
-
-  if(fileType != "edge" && fileType != "adj" ){
-     fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
-     return 0;
-  }
-
-  fprintf(stderr, "total partitions: %zu\n", nparts);
-  fprintf(stderr, "total edges: %zu\n", nedges);
-  //fprintf(stderr, "Edges per partition: %zu\n", edgesPerMPart);
-
-
-  assert(batchSize > 0);
-
-  kp.init(fileName, fileType, nvertices, nedges, hDegree, nthreads, nparts, batchSize, kitems);
-  fprintf(stderr,"\nCreating partitions ..");
-  double runTime = -getTimer();
-  kp.run(); 
-  runTime += getTimer();
-
-  std::cout << endl << "Main::Run time : " << runTime << " (msec)" << std::endl;
-
-  return 0;
-}
 
