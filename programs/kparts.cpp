@@ -36,34 +36,15 @@ class KParts : public GraphParts
     std::map<unsigned, unsigned> keys;
     unsigned hid = 0; 
     unsigned token, to;
-    //       std::vector<IdType> from;
-    if (type == "edge"){
-      while(inputStream >> to >> token){
-        std::map<unsigned, unsigned>::iterator it_to = keys.find(to);
+    if (type == "edge")
+      inputStream >> to;
 
-        if(it_to != keys.end()){
-          keys[to] = it_to->second + 1;
-
-          if((it_to->second + 1) > hiDegree)
-            hid = it_to->second;
-        }
-        else {
-          keys[to] = 1;
-        }
-        //fprintf(stderr,"\n TID %d GOING TO WRITE \n", tid);
-        writeBuf(tid, to, token, hid);
-
-      }
+    while(inputStream >> token){
+      from.push_back(token);
     }
-
-
-    if (type == "adj") {
-       while(inputStream >> token){
-            from.push_back(token);
-       }
- /*   if (type == "edge"){
+    if (type == "edge"){
       for(unsigned i = 0; i < from.size(); ++i){
-        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
+        //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
         if(from.size() < hiDegree){
           writeBuf(tid, to, from[i], hid);
         }
@@ -73,7 +54,11 @@ class KParts : public GraphParts
         }
       }
     }
-   */ //if (type == "adj") {
+
+    if (type == "adj") {
+      while(inputStream >> token){
+        from.push_back(token);
+      }
       for(unsigned i = 0; i < from.size(); ++i){
         //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
         if(from.size() < hiDegree){
@@ -150,7 +135,7 @@ int main(int argc, char** argv)
   //  unsigned edgesPerMPart = (nedges/nparts) + 1;
 
   if(fileType != "edge" && fileType != "adj" ){
-    fprintf(stderr, "\nFile Type %s not accepted\n", fileType.c_str());
+    fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
     return 0;
   }
 

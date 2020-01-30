@@ -14,6 +14,7 @@
 
 #include <sys/mman.h>
 
+  static int commentLines = 0; 
 //--------------------------------------------
 // Helper NON-member Functions
 // Facade for BSP style parallel execution for Coarseners and then Refiners
@@ -55,11 +56,10 @@ void* doMParts(void* arg)
         unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
-        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
-	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d, Type: %s\n", mr->nVertices, mr->nEdges, mr->inType.c_str());
+//        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
+	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
         
 	std::string line;
- 
        if(tid > 0){
         //   infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	   infile.seekg(std::ios::beg);
@@ -70,7 +70,22 @@ void* doMParts(void* arg)
    //     fprintf(stderr,"\n Type : %s \n", mr->inType.c_str());
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-    //            fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
+          if (line[0] == '#' || line[0] == '%'){
+              commentLines++;
+              std::getline(infile, line, '\n');
+          }
+
+        mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid + commentLines; //4, 7, 9
+
+       if(tid > 0){
+        //  need to set the start and end reads incase there are comments in the file 
+	   infile.seekg(std::ios::beg);
+    	    for(int i=0; i < lineId+commentLines; ++i){  //remove -1 if starting from 0
+        	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+            }
+              std::getline(infile, line, '\n');
+        }
+//                fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
            if(mr->inType == "adj" && lineId <= mr->nVertices && lineId <= mr->end_read[tid]){
 
 		time_mparts -= getTimer();
@@ -83,6 +98,7 @@ void* doMParts(void* arg)
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
+      //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
 	  }
           else
             break;

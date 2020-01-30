@@ -126,8 +126,12 @@ IdType getNumLines(std::string fileName){
     std::string line;
     std::ifstream myfile(fileName);
 
-    while (std::getline(myfile, line))
+    while (std::getline(myfile, line)){
+        if (line[0] == '#' || line[0] == '%'){
+              std::getline(myfile, line);
+        }
         ++number_of_lines;
+    }
 
     return number_of_lines;
 }
