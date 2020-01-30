@@ -187,17 +187,19 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
     unsigned bufferId = hashKey(to) % nCols;
     unsigned buffer = tid * nCols + bufferId; 
     unsigned part = tid; // % nCols;
+
     if(hIdSize != 0){
       hIds.emplace(to, hIdSize); 
       // Put the records into different buffer randomly
       unsigned bufferId = hashKey(from) % nCols; 
       unsigned buffer = tid * nCols + bufferId; 
-// less chances of adjlist vertices being on boundary if they are hashed to the partition which has similar vertices as key; hence less edgecuts 
+      // less chances of adjlist vertices being on boundary if they are hashed to the partition which has similar vertices as key; hence less edgecuts 
    }
 
     if(where[part].at(to) == -1){
       where[part].at(to) = bufferId;
   }
+
 //  unsigned buffer = tid * nCols + bufferId;  
     unsigned whereFrom = hashKey(from) % nCols; 
     if(where[part].at(from) == -1){
@@ -222,6 +224,7 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
     writtenToDisk = true;
   }
  
+//  fprintf(stderr,"\n TID %d PERFORM WRITE \n", tid);
   performWrite(tid, buffer, to, from);
 
   timeWBF += getTimer();

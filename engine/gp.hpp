@@ -4,6 +4,7 @@
 #include <utility> // for std::pair
 #include <fstream>
 #include <iostream> //GK
+#include <numeric>
 #include <pthread.h>
 #include <atomic>
 #include <vector>
@@ -66,6 +67,7 @@ void* doMParts(void* arg)
         	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
             }
         }
+   //     fprintf(stderr,"\n Type : %s \n", mr->inType.c_str());
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
 //                fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
@@ -383,7 +385,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 
 	inputFileName = input;
 	std::cout << "Input file name: " << inputFileName << std::endl;
-	numLines = getNumLines(inputFileName);
+//	numLines = getNumLines(inputFileName);
 	//  fprintf(stderr,"\nINIT NumLines: %zu\n", numLines);
 
 	//nInMemParts and nParts are same
@@ -395,7 +397,14 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	nParts = nparts;
 	batchSize = bSize;
 	kBItems = kItems;
-        
+  
+  if(inType == "adj")
+     numLines = nVertices;
+               
+  if(inType == "edge")
+     numLines = nEdges;
+                                    
+                                          
         if (inType == "adj" && numLines != nVertices){
 		fprintf(stderr, "\nNo. of Vertices %d not correct numlines %d \n", nVertices, numLines);
                 assert(false);
