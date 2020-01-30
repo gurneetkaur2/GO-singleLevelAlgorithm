@@ -36,8 +36,10 @@ class KParts : public GraphParts
         unsigned hid = 0; 
         unsigned token, to;
 //       std::vector<IdType> from;
-        if (type == "edge")
+
+        if (type == "edge"){
         	inputStream >> to;
+        }
 
         while(inputStream >> token){
 	    from.push_back(token);
@@ -131,7 +133,7 @@ std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <nedges
 //  unsigned edgesPerMPart = (nedges/nparts) + 1;
 
   if(fileType != "edge" && fileType != "adj" ){
-     fprintf(stderr, "\nFile Type %s not accepted\n", fileType.c_str());
+     fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
      return 0;
   }
 
