@@ -37,6 +37,7 @@ class KParts : public GraphParts
     unsigned token, to;
     //       std::vector<IdType> from;
     std::map<unsigned, unsigned> keys;
+    unsigned long long num_vertices = 0; 
 
     if (type == "edge"){
       inputStream >> to;
@@ -54,6 +55,8 @@ class KParts : public GraphParts
         keys[to] = 1;
       }
 
+      num_vertices = max(num_vertices, max(to, token));
+ //     ++num_edges;
       writeBuf(tid, to, token, hid);
     }
 
