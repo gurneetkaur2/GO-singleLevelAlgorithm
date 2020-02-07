@@ -39,7 +39,7 @@ class KParts : public GraphParts
     std::map<unsigned, unsigned> keys;
     unsigned long long num_vertices = 0; 
 
-    if (type == "edge"){
+    if (type == "edgelist"){
       inputStream >> to;
       inputStream >> token;
       std::map<unsigned, unsigned>::iterator it_to = keys.find(to);
@@ -81,6 +81,7 @@ class KParts : public GraphParts
       for(unsigned i = 0; i < from.size(); ++i){
         //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
         if(from.size() < hiDegree){
+        // fprintf(stderr,"\nVID: %d GOING to writebuf");
           writeBuf(tid, lineId, from[i], hid);
         }
         else{
@@ -135,7 +136,7 @@ class KParts : public GraphParts
     KParts kp;
     if (argc != 10)
     {
-      std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <nedges> <hDegree> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+      std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
       return 0;
     }
 
@@ -144,28 +145,28 @@ class KParts : public GraphParts
     fileName = argv[1];
     fileType = argv[2]; 
     IdType nvertices = atoi(argv[3]);
-    IdType nedges = atoi(argv[4]);
-    unsigned nthreads = atoi(argv[6]);
+ //   IdType nedges = atoi(argv[4]);
+    unsigned nthreads = atoi(argv[5]);
     unsigned batchSize = atoi(argv[7]);
     unsigned kitems = atoi(argv[8]);
     unsigned nparts = atoi(argv[6]);
-    unsigned hDegree = atoi(argv[5]);
+    unsigned hDegree = atoi(argv[4]);
     outputPrefix = argv[9];
     //  unsigned edgesPerMPart = (nedges/nparts) + 1;
 
-    if(fileType != "edge" && fileType != "adj" ){
-      fprintf(stderr, "\nFile Type %s not accepted, please select edge or adj \n", fileType.c_str());
+    if(fileType != "edgelist" && fileType != "adjlist" ){
+      fprintf(stderr, "\nFile Type %s not accepted, please select edgelist or adjlist format \n", fileType.c_str());
       return 0;
     }
 
     fprintf(stderr, "total partitions: %zu\n", nparts);
-    fprintf(stderr, "total edges: %zu\n", nedges);
+ //   fprintf(stderr, "total edges: %zu\n", nedges);
     //fprintf(stderr, "Edges per partition: %zu\n", edgesPerMPart);
 
 
     assert(batchSize > 0);
 
-    kp.init(fileName, fileType, nvertices, nedges, hDegree, nthreads, nparts, batchSize, kitems);
+    kp.init(fileName, fileType, nvertices, hDegree, nthreads, nparts, batchSize, kitems);
     fprintf(stderr,"\nCreating partitions ..");
     double runTime = -getTimer();
     kp.run(); 

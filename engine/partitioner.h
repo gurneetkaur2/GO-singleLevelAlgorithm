@@ -59,7 +59,8 @@ class Partitioner
   public:
     void initg(unsigned nVertices, unsigned hDegree, unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts);
 //    void coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const  unsigned int* mapSupRowstoRows);
-    void writeInit(const unsigned tid);
+    //void writeInit(const unsigned tid);
+    void writeInit();
     void writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hiDegree);
 //    graph_t* initsubgraph(const unsigned tid, const unsigned buffer);
     void performWrite(const unsigned tid, const unsigned buffer, const unsigned to, const unsigned from);

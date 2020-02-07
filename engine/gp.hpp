@@ -46,7 +46,7 @@ void* doMParts(void* arg)
 	Partitioner& partitioner = mr->partitioner;
 //	fprintf(stderr, "\n DoMparts tid %d  ", tid);  //GK
    
-	mr->writeInit(tid);
+	//  mr->writeInit(rand() % mr->nParts);
 //	fprintf(stderr, "\n After writeinit tid %d  ", tid);  //GK
 
 	std::ifstream infile(mr->inputFileName.c_str()); 
@@ -57,7 +57,7 @@ void* doMParts(void* arg)
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
-	fprintf(stderr, "\nCreating memory partitions nVertices: %d, nEdges: %d\n", mr->nVertices, mr->nEdges);
+	fprintf(stderr, "\nCreating memory partitions nVertices: %d, Partitions: %d\n", mr->nVertices, mr->nParts);
         
 	std::string line;
        if(tid > 0){
@@ -70,21 +70,21 @@ void* doMParts(void* arg)
    //     fprintf(stderr,"\n Type : %s \n", mr->inType.c_str());
 	while(std::getline(infile, line, '\n')){
                 //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-//                fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
-           if(mr->inType == "adj" && lineId < mr->nVertices && lineId <= mr->end_read[tid]){
+      //          fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
+           if( lineId < mr->nVertices && lineId <= mr->end_read[tid]){
+
+		time_mparts -= getTimer();
+		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
+	        time_mparts += getTimer();
+      //         fprintf(stderr,"\nTID: %d returned ", tid);
+	  }
+    /*      else if(mr->inType == "edgelist" && lineId <= mr->end_read[tid]){
 
 		time_mparts -= getTimer();
 		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
 	        time_mparts += getTimer();
       //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
-	  }
-          else if(mr->inType == "edge" && lineId <= mr->end_read[tid]){
-
-		time_mparts -= getTimer();
-		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
-	        time_mparts += getTimer();
-      //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
-	  }
+	  }*/
           else
             break;
         }
@@ -299,6 +299,7 @@ void GraphParts::run()
  	init_time += getTimer();
 
 	fprintf(stderr, "Reading Graph from file\n");
+  partitioner.writeInit();
 	parallelExecute(doMParts, this, nThreads);
 	fprintf(stderr,"\nSuccessfully Uploaded the Graph\n");
 
@@ -369,19 +370,19 @@ void GraphParts::run()
 //--------------------------------------------
 void GraphParts::partitionInputForParallelReads() {
 	// Get size of input file
-	std::ifstream in(inputFileName.c_str(), std::ifstream::ate | std::ifstream::binary); assert(in.is_open());
+/*	std::ifstream in(inputFileName.c_str(), std::ifstream::ate | std::ifstream::binary); assert(in.is_open());
 	size_t fileSizeInBytes = in.tellg();
 	fprintf(stderr, "fileSizeInBytes: %zu\n", fileSizeInBytes);
 	//fprintf(stderr, "\nnumlines: %u\n", numLines);
 	in.close();
-	fprintf(stderr,"\n NumLines: %zu", numLines);
+*/	fprintf(stderr,"\n NumLines: %zu", numLines);
 	linesPerThread = numLines/nThreads;
 	fprintf(stderr,"\nLinesPerThread: %zu \n", linesPerThread);
-	bytesPerFile = fileSizeInBytes/nThreads + 1; //fileSizeInBytes/nThreads + 1;
+	//bytesPerFile = fileSizeInBytes/nThreads + 1; //fileSizeInBytes/nThreads + 1;
 }
 
 //--------------------------------------------
-void GraphParts::init(const std::string input, const std::string type, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
+void GraphParts::init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
 
 	inputFileName = input;
 	std::cout << "Input file name: " << inputFileName << std::endl;
@@ -390,7 +391,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 
 	//nInMemParts and nParts are same
 	nVertices = nvertices;
-	nEdges = nedges;
+//	nEdges = nedges;
  	hDegree = hdegree;
         inType = type;
 	nThreads = nthreads;
@@ -398,28 +399,28 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	batchSize = bSize;
 	kBItems = kItems;
   
-  if(inType == "adj")
+ // if(inType == "adj")
      numLines = nVertices;
                
-  if(inType == "edge")
-     numLines = nEdges;
+//  if(inType == "edge")
+//     numLines = nEdges;
                                     
                                           
-        if (inType == "adj" && numLines != nVertices){
+        if (inType == "adjlist" && numLines != nVertices){
 		fprintf(stderr, "\nNo. of Vertices %d not correct numlines %d \n", nVertices, numLines);
                 assert(false);
 	}
 
-        if (inType == "edge" && numLines != nEdges){
+/*        if (inType == "edge" && numLines != nEdges){
 		fprintf(stderr, "\nNo. of Edges %d not correct\n", numLines);
                 assert(false);
 	}
-
+*/
 	setRefiners(std::min(nThreads, nParts));
 	//TODO:need to check if I need this --  nParts = std::min(nThreads, nParts);
 
 	std::cout << "nVertices: " << nVertices << std::endl;
-	std::cout << "nEdges: " << nEdges << std::endl;
+	//std::cout << "nEdges: " << nEdges << std::endl;
 	std::cout << "hDegree: " << hDegree << std::endl;
 	std::cout << "nThreads: " << nThreads << std::endl;
 	std::cout << "nParts: " << nParts << std::endl;
@@ -470,8 +471,8 @@ unsigned GraphParts::countTotalPECut(const unsigned tid) {
 	return partitioner.countTotalPECut(tid);
 }
 //--------------------------------------------
-void GraphParts::writeInit(const unsigned tid) {
-	return partitioner.writeInit(tid);
+void GraphParts::writeInit() {
+	return partitioner.writeInit();
 }
 
 //--------------------------------------------

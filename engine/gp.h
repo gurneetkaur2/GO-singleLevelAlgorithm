@@ -22,10 +22,10 @@ class GraphParts
          
     // System provided default; overridable by user
     virtual void run();
-    void init(const std::string input, const std::string type, const unsigned nvertices, const unsigned nedges, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
+    void init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
     void setRefiners(const unsigned refiners);
-    void writeInit(const unsigned buffer);
+    void writeInit();
     void writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree);
     bool read(const unsigned tid);
     void printParts(const unsigned tid, std::string outputPrefix);
@@ -39,7 +39,7 @@ class GraphParts
 
     // Variables. Ideally, make these private and provide getters/setters.
     unsigned nVertices;
-    unsigned nEdges;
+    //unsigned nEdges;
     unsigned hDegree;
     unsigned nThreads;
     unsigned batchSize;  //Number of items in a batch

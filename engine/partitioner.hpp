@@ -83,8 +83,8 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
     locks.push_back(mutex);
     
     totalKeysInFile[i] = 0;
+ 
   }
-
   // setup FileIO
 //#ifdef USE_ONE_PHASE_IO
   //io = new OnePhaseFileIO<RecordType>("/tmp/gkaur007/mrdata/", nCols, 0/*UNUSED*/);
@@ -162,19 +162,21 @@ void Partitioner::releaseReadPartStructures()
 }
 
 //--------------------------------------------------
-void Partitioner::writeInit(const unsigned tid) {
+//void Partitioner::writeInit(const unsigned tid) {
+void Partitioner::writeInit() {
 //  unsigned j=0;
-    unsigned nparts = tid; // % nCols;
-    //fprintf(stderr,"\n TID %d nParts %d ", tid, nparts);
-  for (unsigned i = 0; i<=nVtces; ++i) {
-//       partitionBndInd[tid].push_back(NULL);
-//       partitionBndPtr[tid].push_back(-1);
-         where[nparts].push_back(-1); 
-         if(tid == 0){
+    //unsigned nparts = tid; // % nCols;
+    fprintf(stderr,"\n TID nParts %d ", nCols);
+  for (unsigned i = 0; i<nCols; ++i) {
+    for (unsigned j = 0; j<=nVtces; ++j) {
+         where[i].push_back(-1); 
+        }
+     } 
+
+    for (unsigned j = 0; j<=nVtces; ++j) {
            gWhere.push_back(-1);
-         } 
-  }
-    fprintf(stderr,"\n TID %d WriteInit ", tid);
+       } 
+   // fprintf(stderr,"\n TID %d WriteInit ", tid);
 
 }
 
@@ -183,10 +185,10 @@ void Partitioner::writeInit(const unsigned tid) {
 //void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, std::vector<unsigned>& where){
 void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hIdSize = 0){
     double timeWBF = -getTimer();
-
+  // fprintf(stderr,"\nInside WriteBuf TID %d", tid);
     unsigned bufferId = hashKey(to) % nCols;
     unsigned buffer = tid * nCols + bufferId; 
-    unsigned part = tid; // % nCols;
+    unsigned part = tid % nCols; // % nCols;
 
     if(hIdSize != 0){
       hIds.emplace(to, hIdSize); 
@@ -196,6 +198,7 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
       // less chances of adjlist vertices being on boundary if they are hashed to the partition which has similar vertices as key; hence less edgecuts 
    }
 
+//   fprintf(stderr,"\nTID %d calculating where", tid);
     if(where[part].at(to) == -1){
       where[part].at(to) = bufferId;
   }
@@ -206,7 +209,7 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
       where[part].at(from) = whereFrom;
   }
 
-  //fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
+ // fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
 
   if (outBufMap[buffer].size() >= batchSize) {
 
