@@ -133,6 +133,7 @@ class Partitioner
     bool getPartRefine() { return partRefine; }
     IdType getTotalPECuts(const unsigned tid) { return totalPECuts[tid]; }
     IdType setTotalPECuts(const unsigned tid) { totalPECuts[tid] = 0; }
+    unsigned getTotalCuts(const unsigned tid) { if (tid == 0) return totalCuts; else return 0;  }
     void setTotalCuts(const unsigned tid) { if (tid == 0) totalCuts = 0; }
    
     pthread_barrier_t barRefinepart;

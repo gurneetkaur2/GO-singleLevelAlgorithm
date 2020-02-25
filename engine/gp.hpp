@@ -197,7 +197,6 @@ void* doRefine(void* arg)
 void* doInMemoryRefine(void* arg) {
 
 	double time_refine = -getTimer();
-
 	  unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
 	  GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	  Partitioner& partitioner = mr->partitioner;
@@ -253,13 +252,13 @@ void* doInMemoryRefine(void* arg) {
 
 	pthread_barrier_wait(&(mr->barClear));
           mr->refineInit(tid);
-         // partitioner.setTotalCuts(tid);
-        partitioner.ComputeBECut(tid, partitioner.readBufMap[tid]);
-    //    partitioner.ctotalEdgeCuts(tid);
+        //partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
+        partitioner.cread(tid);
 	pthread_barrier_wait(&(mr->barRefine));
        if(tid == 0){
         partitioner.setTotalCuts(tid);
 	time_refine += getTimer();
+
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	time_refine = -getTimer();
   	}
