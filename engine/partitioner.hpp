@@ -486,7 +486,6 @@ void Partitioner::readClear(const unsigned tid) {
   readNextInBatch[tid].clear();
   keysPerBatch[tid].clear();
   batchesCompleted[tid].clear();
-fprintf(stderr,"\nInitiating In-Memory refine TID %d total Keys %d\n", tid, totalKeysInFile[tid]);
 }
 //--------------------------------------------------
 void Partitioner::refineInit(const unsigned tid) {
