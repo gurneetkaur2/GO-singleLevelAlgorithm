@@ -1274,13 +1274,15 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
   // stime = 0.0;
   ofile<<"Batch Size - " << batchSize <<"\t KItems - "<<kBItems<<std::endl;
   for(unsigned i = 0; i <= nVtces; ++i){
-     if(gWhere[i] != -1 && gWhere[i] == tid){
+     if(gWhere[i] != -1){// && gWhere[i] == tid){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){
  //      std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
    //    stime -= getTimer();
        ofile<<i << "\t" << gWhere[i]<< std::endl;
      //  stime += getTimer();
      }
+     else
+       fprintf(stderr,"\nVertex %d not added to file \n", i);
   }
   ofile.close();
 }

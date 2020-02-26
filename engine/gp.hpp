@@ -168,7 +168,9 @@ void* doRefine(void* arg)
 	fprintf(stderr, "\nthread %u waiting for others to finish Refine\n", tid);
 	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barAfterRefine));
+  if(tid == 0)
 	  mr->afterRefine(tid, mr->nVertices);
+
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
 //	pthread_barrier_wait(&(mr->barRefine));
@@ -250,7 +252,9 @@ void* doInMemoryRefine(void* arg) {
 	fprintf(stderr, "\nthread %u waiting for others to finish InMemory Refine\n", tid);
 	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barAfterRefine));
-	mr->afterRefine(tid, mr->nVertices);
+  if(tid == 0)
+  	mr->afterRefine(tid, mr->nVertices);
+
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
 
