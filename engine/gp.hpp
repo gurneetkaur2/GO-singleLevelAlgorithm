@@ -51,13 +51,17 @@ void* doMParts(void* arg)
 
 	std::ifstream infile(mr->inputFileName.c_str()); 
 	assert(infile.is_open());
+	        time_mparts += getTimer();
 	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
+		time_mparts -= getTimer();
 	infile.seekg(std::ios::beg); //need this for Tid = 0
         unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
+	        time_mparts += getTimer();
 	fprintf(stderr, "\nCreating memory partitions nVertices: %d, Partitions: %d\n", mr->nVertices, mr->nParts);
+		time_mparts -= getTimer();
         
 	std::string line;
        if(tid > 0){

@@ -1005,7 +1005,6 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
   unsigned long long k = 0;  // beginning of the next iteration
 //  unsigned reach_end = 0;
 //  int loopGain = 0;
-fprintf(stderr,"\nInitiating In-Memory refine TID %d total Keys %d\n", tid, totalKeysInFile[tid]);
   while(true){
  //  if(readBufMap[tid].size() <= kBItems){
   int maxGain = -1;
