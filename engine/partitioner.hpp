@@ -1281,8 +1281,8 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
        ofile<<i << "\t" << gWhere[i]<< std::endl;
      //  stime += getTimer();
      }
-     else
-       fprintf(stderr,"\nVertex %d not added to file \n", i);
+   //  else
+     //  fprintf(stderr,"\nVertex %d not added to file \n", i);
   }
   ofile.close();
 }
