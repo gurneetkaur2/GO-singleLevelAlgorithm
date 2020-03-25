@@ -574,7 +574,6 @@ void Partitioner::initiateInMemoryRefine(unsigned tid) {
 
 //--------------------------------------------------
 bool Partitioner::readInMem(unsigned tid) {
-
    for (auto it = std::next(refineMap[tid].begin(), readNext[tid]); it != refineMap[tid].end(); ++it) {
      if(readBufMap[tid].size() >= kBItems){  
         readNext[tid] += readBufMap[tid].size() ; //start position to read
@@ -1219,10 +1218,10 @@ while(true) {
     }
 //    fprintf(stderr, "\nExecloop is %d, TID %d", execLoop, tid);
 
-//   fprintf(stderr,"\nCREAD getpartRefine: %d\n", getPartRefine());
+  // fprintf(stderr,"\nCREAD totalCuts: %d\n", totalCuts);
     if(execLoop == false) {
     //  for(InMemoryConstIterator it = refineMap[tid].begin(); it != refineMap[tid].end(); ++it){
-  //      fprintf(stderr,"\nCREAD- tid: %d, Computing edgecuts with Map Size %d", tid, refineMap[tid].size());
+    //    fprintf(stderr,"\nCREAD- tid: %d, Computing edgecuts with Map Size %d", tid, refineMap[tid].size());
     //   if(getWrittenToDisk() && !getPartRefine()){
     if(!getWrittenToDisk()){
          ComputeBECut(tid, readBufMap[tid]);
@@ -1272,7 +1271,7 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
   assert(ofile.is_open());
 //   std::cout<<"\nFIlename: "<< fileName <<std::endl;
   // stime = 0.0;
-  ofile<<"Batch Size - " << batchSize <<"\t KItems - "<<kBItems<<std::endl;
+//  ofile<<"Batch Size - " << batchSize <<"\t KItems - "<<kBItems<<std::endl;
   for(unsigned i = 0; i <= nVtces; ++i){
      if(gWhere[i] != -1){// && gWhere[i] == tid){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){

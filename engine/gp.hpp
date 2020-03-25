@@ -51,17 +51,17 @@ void* doMParts(void* arg)
 
 	std::ifstream infile(mr->inputFileName.c_str()); 
 	assert(infile.is_open());
-	        time_mparts += getTimer();
-	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
-		time_mparts -= getTimer();
+	  //      time_mparts += getTimer();
+//	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
+	//	time_mparts -= getTimer();
 	infile.seekg(std::ios::beg); //need this for Tid = 0
         unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
 	//infile.seekg(tid*lineId, infile.beg);
        // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
         mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
-	        time_mparts += getTimer();
-	fprintf(stderr, "\nCreating memory partitions nVertices: %d, Partitions: %d\n", mr->nVertices, mr->nParts);
-		time_mparts -= getTimer();
+	  //      time_mparts += getTimer();
+	//fprintf(stderr, "\nCreating memory partitions nVertices: %d, Partitions: %d\n", mr->nVertices, mr->nParts);
+		//time_mparts -= getTimer();
         
 	std::string line;
        if(tid > 0){
@@ -142,10 +142,10 @@ void* doRefine(void* arg)
                continue;
 	     }
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
-	time_refine += getTimer();
+	//time_refine += getTimer();
 
-        fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
-	time_refine = -getTimer();
+  //      fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
+//	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.bRefine(tid, hipart, whereMax, ret);
             if(ret == true) {
@@ -159,9 +159,9 @@ void* doRefine(void* arg)
    
        //TODO:: may be wait before starting next iter?
 //	pthread_barrier_wait(&(mr->barRefine));
-	time_refine += getTimer();
-        fprintf(stderr,"\nTID %d finished iter %d  using disk", tid,++k);
-	time_refine = -getTimer();
+	//time_refine += getTimer();
+    //    fprintf(stderr,"\nTID %d finished iter %d  using disk", tid,++k);
+	//time_refine = -getTimer();
       // if(tid ==0) partitioner.pIdStarted.clear();
   }
 	time_refine += getTimer();
@@ -185,14 +185,14 @@ void* doRefine(void* arg)
 	pthread_barrier_wait(&(mr->barRefine));
        if(tid == 0){
         partitioner.setTotalCuts(tid);
-	time_refine += getTimer();
+//	time_refine += getTimer();
        fprintf(stderr,"\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-	time_refine = -getTimer();
+//	time_refine = -getTimer();
 	}
        
-	time_refine += getTimer();
-  	fprintf(stderr, "\nthread %u finished Refining\n", tid);
-	time_refine = -getTimer();
+//	time_refine += getTimer();
+  	//fprintf(stderr, "\nthread %u finished Refining\n", tid);
+	//time_refine = -getTimer();
 	return NULL;
 
 }
@@ -211,10 +211,10 @@ void* doInMemoryRefine(void* arg) {
 	pthread_barrier_wait(&(mr->barRefine));
         if(tid == 0)  //Need this condition when used in multi thread envt.
 	    partitioner.releaseInMemStructures();
-	time_refine += getTimer();
+	//time_refine += getTimer();
 //	  mr->refineInit(tid);
         partitioner.setTotalCuts(tid);
-	time_refine = -getTimer();
+	//time_refine = -getTimer();
 	  mr->refineInit(tid);
           int k = 0; 
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
@@ -225,10 +225,10 @@ void* doInMemoryRefine(void* arg) {
                continue;
 	     }
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
-	time_refine += getTimer();
+	//time_refine += getTimer();
 
-        fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
-	time_refine = -getTimer();
+    //    fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
+	//time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.inMemRefine(tid, hipart, whereMax, ret);
         // fprintf(stderr,"\nTID %d back after inMem Refine ret: %d ", tid, ret);
@@ -241,9 +241,9 @@ void* doInMemoryRefine(void* arg) {
 	pthread_barrier_wait(&(mr->barWriteInfo));
             partitioner.clearMemorystructures(tid);
  	    partitioner.pIdsCompleted[hipart][whereMax] = true;
-	time_refine += getTimer();
-        fprintf(stderr,"\nTID %d finished iter %d  in Memory", tid,++k);
-	time_refine = -getTimer();
+//	time_refine += getTimer();
+  //      fprintf(stderr,"\nTID %d finished iter %d  in Memory", tid,++k);
+	//time_refine = -getTimer();
        //if(tid ==0) partitioner.pIdStarted.clear();
 
   }
@@ -259,20 +259,23 @@ void* doInMemoryRefine(void* arg) {
 	mr->refine_times[tid] += time_refine;
 
 	pthread_barrier_wait(&(mr->barClear));
+      // if(tid == 0)
+       //   partitioner.setTotalCuts(tid);
           mr->refineInit(tid);
-        //partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
-        partitioner.cread(tid);
+    // fprintf(stderr,"\nTID %d RefineMap size: %d Total Cuts: %d", tid, partitioner.refineMap[tid].size(), partitioner.countTotalPECut(tid));
+      //  partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
+          partitioner.cread(tid);
 	pthread_barrier_wait(&(mr->barRefine));
        if(tid == 0){
         partitioner.setTotalCuts(tid);
-	time_refine += getTimer();
+//	time_refine += getTimer();
 
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-	time_refine = -getTimer();
+	//time_refine = -getTimer();
   	}
-	time_refine += getTimer();
-	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
-	time_refine = -getTimer();
+	//time_refine += getTimer();
+//	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
+//	time_refine = -getTimer();
 	 
 	return NULL;
 }
