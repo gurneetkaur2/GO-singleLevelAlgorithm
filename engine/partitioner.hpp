@@ -238,7 +238,6 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
 //--------------------------------------------------
 void Partitioner::flushBResidues(const unsigned tid) {
 
-fprintf(stderr,"\nFlushing buffer %d residues\n", tid);
 
 if(tid >= nCols) 
     return;
