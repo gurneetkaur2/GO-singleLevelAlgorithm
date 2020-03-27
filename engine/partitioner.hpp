@@ -565,8 +565,8 @@ void Partitioner::initiateInMemoryRefine(unsigned tid) {
 
    for(unsigned i=0; i<nRows; ++i) {
      refineMap[tid].insert(outBufMap[tid + nCols * i].begin(), outBufMap[tid + nCols * i].end());
-    totalKeysInFile[tid] += refineMap[tid].size();
    }
+    totalKeysInFile[tid] += refineMap[tid].size();
   readNext[tid] = 0;
 
 }
@@ -574,7 +574,10 @@ void Partitioner::initiateInMemoryRefine(unsigned tid) {
 //--------------------------------------------------
 bool Partitioner::readInMem(unsigned tid) {
    for (auto it = std::next(refineMap[tid].begin(), readNext[tid]); it != refineMap[tid].end(); ++it) {
-     if(readBufMap[tid].size() >= kBItems){  
+     if(readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])
+       return false;
+
+     if(readBufMap[tid].size() >= (kBItems*100)){  
         readNext[tid] += readBufMap[tid].size() ; //start position to read
 	break;
      }
@@ -584,10 +587,10 @@ bool Partitioner::readInMem(unsigned tid) {
      readBufMap[tid][key].push_back(*vit);
       }
    }
-   if(readNext[tid] < totalKeysInFile[tid])
-	return false;
-
-return true;
+   if(readNext[tid] < totalKeysInFile[tid]){
+	return true;
+  }
+return false;
 }
 
 //--------------------------------------------------
@@ -950,7 +953,8 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
         reach_end++; // to keep track of the total records read in the buffer
      }
 
-    //    fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
+        //fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
+    //    fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d readNext: %d totalKeys: %d refineMap: %d\n", tid, readBufMap[tid].size(), k, readNext[tid], totalKeysInFile[tid], refineMap[tid].size());
      ComputeBECut(tid, readBufMap[tid]);
   // fprintf(stderr,"\ntid %d BRefine Compute EC ", tid);
      pthread_barrier_wait(&(barEdgeCuts));
@@ -967,7 +971,7 @@ void Partitioner::bRefine(const unsigned tid, const unsigned hipart, const unsig
             //  gainTable.clear();
               maxGain = computeGain(tid, hipart, whereMax, k, readBufMap[hipart]);
 	} while(maxGain > 0);
-    //fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems);
+   // fprintf(stderr,"\nFinished computing Gain TID %d Map Size: %d, reachEnd+kBItems: %d \n ", tid, readBufMap[tid].size(), reach_end+kBItems);
      }
      k += dTable[hipart].size();  // dtable and readBuf should be same size dTable[hipart].size();
      if (maxGain == -1 &&  (reach_end + kBItems) >= readBufMap[tid].size()){
@@ -1000,7 +1004,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const unsigned whereMax, std::vector<unsigned>& gWhere, std::map<unsigned, unsigned>& markMax, std::map<unsigned, unsigned>& markMin, const bool ret) {
 
   unsigned long long k = 0;  // beginning of the next iteration
-//  unsigned reach_end = 0;
+  unsigned reach_end = 0;
 //  int loopGain = 0;
   while(true){
  //  if(readBufMap[tid].size() <= kBItems){
@@ -1011,14 +1015,14 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
    //for (auto it = std::next(readBufMap[tid].begin(), reach_end); it != readBufMap[tid].end(); ++it) {
    for (auto it = readBufMap[tid].begin(); it != readBufMap[tid].end(); ++it) {
         dTable[tid][it->first] = it->second.size();
-        //reach_end++;
+//        reach_end++;
      }//addDVals(tid);
      ComputeBECut(tid, readBufMap[tid]);
      pthread_barrier_wait(&(barEdgeCuts));
      computeDVals(tid, hipart, whereMax, k);
      pthread_barrier_wait(&(barCompute));
     
-//     fprintf(stderr,"\n********InMemory TID %d , ret: %d  ******** ", tid, ret);
+    // fprintf(stderr,"\n********InMemory TID %d , ret: %d  ******** ", tid, ret);
      if(ret == true) {
         do{
               //gainTable.clear();
@@ -1034,7 +1038,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
      k += dTable[hipart].size();
    // fprintf(stderr,"\nLASt Finished computing Gain TID %d ", tid);
      //if (maxGain == -1){
-     if (maxGain == -1 ) { //&& (reach_end ) >= refineMap[tid].size()){
+     if (maxGain == -1) {// && (reach_end + kBItems) >= readBufMap[tid].size()){
       //  fprintf(stderr,"\n Last Partition %d is refined with whereMax partition %d ***** ", hipart, whereMax);
       }
   //  fprintf(stderr,"\nTID %d is going to break out of while in memory", tid);
@@ -1045,16 +1049,16 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 
   //   do{
    InMemoryContainerIterator it;
-  // unsigned counter = 0;
-    //    fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d hipart: %d whereMax: %d\n", tid, readBufMap[tid].size(), k, hipart, whereMax);
+   unsigned counter = 0;
+        //fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d readNext: %d totalKeys: %d refineMap: %d\n", tid, readBufMap[tid].size(), k, readNext[tid], totalKeysInFile[tid], refineMap[tid].size());
  //  fprintf(stderr,"\ntid %d STarting next Iter ", tid);
    for ( it = readBufMap[tid].begin(); it != readBufMap[tid].end(); ++it){ // std::advance(it,reach_end)) {
-     //  if (counter >= kBItems)
-     //     break;
+       if (counter >= kBItems)
+          break;
 
         dTable[tid][it->first] = it->second.size();
-        //counter++;
-      //  reach_end++; // to keep track of the total records read in the buffer
+        counter++;
+        reach_end++; // to keep track of the total records read in the buffer
      } 
       //fprintf(stderr,"\n tid %d readBUfmap size: %d ", tid, readBufMap[tid].size());
 //   fprintf(stderr,"\ntid %d Compute EC ", tid);
@@ -1073,14 +1077,14 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
      }
      k += dTable[hipart].size(); //reach_end;
    //  if (maxGain == -1 && loopGain >= 50) {//reach_end >= readBufMap[tid].size() ){
-    //  fprintf(stderr,"\n tid %d readBUfmap size: %d, reach_end %d ", tid, readBufMap[tid].size(), reach_end);
-     if (maxGain == -1){ // && (reach_end)  >= refineMap[tid].size() ){
+      //fprintf(stderr,"\n tid %d refinemap size: %d, reach_end %d ", tid, refineMap[tid].size(), reach_end);
+     if (maxGain == -1 && (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])){
       //  fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** refine Map Size %d", hipart, whereMax, refineMap[tid].size());
   //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
     //    if(readBufMap[tid].size() <= kBItems)
      readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
    //  readBufMap[tid].erase(readBufMap[tid].begin(), it);
-          break;
+       break;
       }
    //  readBufMap[tid].erase(readBufMap[tid].begin(), it);
      readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
@@ -1205,6 +1209,7 @@ bool Partitioner::refine(const unsigned tid) {
 //--------------------------------------------------
 void Partitioner::cread(const unsigned tid) {
  totalCuts = 0; 
+ // fprintf(stderr, "\nDoRefine: readNext[tid]: %d\n", readNext[tid]);
 while(true) {
 //  fprintf(stderr, "\nDoRefine: Calling Read\n");
     bool execLoop;
@@ -1239,8 +1244,12 @@ while(true) {
 //  if(!getPartRefine()){
     if(!getWrittenToDisk()){
          ComputeBECut(tid, readBufMap[tid]);
-//fprintf(stderr,"\nCREAD - Map %d size: %d\n", tid, readBufMap[tid].size());
+        if (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid]){
+//fprintf(stderr,"\nCREAD - Map %d size: %d readNext: %d TK: %d\n", tid, readBufMap[tid].size(), readNext[tid], totalKeysInFile[tid]);
         readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
+        break;
+        readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
+        }
      }
     else{
         ComputeBECut(tid, refineMap[tid]);
