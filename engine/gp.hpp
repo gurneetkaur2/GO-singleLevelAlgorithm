@@ -179,6 +179,8 @@ void* doRefine(void* arg)
         fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
 	}*/
 	pthread_barrier_wait(&(mr->barClear));
+    if(tid == 0)
+		mr->partitioner.gCopy(tid);
         partitioner.readClear(tid); 
 	partitioner.refineInit(tid);
         partitioner.cread(tid);
@@ -259,7 +261,8 @@ void* doInMemoryRefine(void* arg) {
 	mr->refine_times[tid] += time_refine;
 
 	pthread_barrier_wait(&(mr->barClear));
-      // if(tid == 0)
+    if(tid == 0)
+		   mr->partitioner.gCopy(tid);
        //   partitioner.setTotalCuts(tid);
           mr->refineInit(tid);
     // fprintf(stderr,"\nTID %d RefineMap size: %d Total Cuts: %d", tid, partitioner.refineMap[tid].size(), partitioner.countTotalPECut(tid));

@@ -577,7 +577,7 @@ bool Partitioner::readInMem(unsigned tid) {
      if(readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])
        return false;
 
-     if(readBufMap[tid].size() >= (kBItems*100)){  
+     if(readBufMap[tid].size() >= (kBItems)){  
         readNext[tid] += readBufMap[tid].size() ; //start position to read
 	break;
      }
@@ -1049,15 +1049,15 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
 
   //   do{
    InMemoryContainerIterator it;
-   unsigned counter = 0;
+  // unsigned counter = 0;
         //fprintf(stderr,"\n-- ITER tid: %d, readMap Size: %d, k: %d readNext: %d totalKeys: %d refineMap: %d\n", tid, readBufMap[tid].size(), k, readNext[tid], totalKeysInFile[tid], refineMap[tid].size());
  //  fprintf(stderr,"\ntid %d STarting next Iter ", tid);
    for ( it = readBufMap[tid].begin(); it != readBufMap[tid].end(); ++it){ // std::advance(it,reach_end)) {
-       if (counter >= kBItems)
-          break;
+    //   if (counter >= kBItems)
+      //    break;
 
         dTable[tid][it->first] = it->second.size();
-        counter++;
+        // counter++;
         reach_end++; // to keep track of the total records read in the buffer
      } 
       //fprintf(stderr,"\n tid %d readBUfmap size: %d ", tid, readBufMap[tid].size());
@@ -1078,7 +1078,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
      k += dTable[hipart].size(); //reach_end;
    //  if (maxGain == -1 && loopGain >= 50) {//reach_end >= readBufMap[tid].size() ){
       //fprintf(stderr,"\n tid %d refinemap size: %d, reach_end %d ", tid, refineMap[tid].size(), reach_end);
-     if (maxGain == -1 && (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])){
+     if (maxGain == -1 && (reach_end)  >= refineMap[tid].size()){// && (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])){
       //  fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** refine Map Size %d", hipart, whereMax, refineMap[tid].size());
   //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
     //    if(readBufMap[tid].size() <= kBItems)
@@ -1215,7 +1215,7 @@ while(true) {
     bool execLoop;
     if(!getWrittenToDisk()){
     // for in-memory reads
-      execLoop = readInMem(tid);
+      execLoop = 0;//readInMem(tid);
     } 
    else{
        execLoop = refine(tid);
@@ -1227,35 +1227,35 @@ while(true) {
     //  for(InMemoryConstIterator it = refineMap[tid].begin(); it != refineMap[tid].end(); ++it){
     //    fprintf(stderr,"\nCREAD- tid: %d, Computing edgecuts with Map Size %d", tid, refineMap[tid].size());
     //   if(getWrittenToDisk() && !getPartRefine()){
-    if(!getWrittenToDisk()){
+   /* if(!getWrittenToDisk()){
          ComputeBECut(tid, readBufMap[tid]);
          readBufMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
      }
-    else{
+    else{*/
          ComputeBECut(tid, refineMap[tid]);
        //  if(tid == 0) countTotalPECut(tid);
          refineMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
-      }
+     // }
        break;
     }
 
    // Read the kitems from infinimem and compute the edgecuts for that part
 
 //  if(!getPartRefine()){
-    if(!getWrittenToDisk()){
-         ComputeBECut(tid, readBufMap[tid]);
-        if (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid]){
+//    if(!getWrittenToDisk()){
+  //       ComputeBECut(tid, readBufMap[tid]);
+       /* if (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid]){
 //fprintf(stderr,"\nCREAD - Map %d size: %d readNext: %d TK: %d\n", tid, readBufMap[tid].size(), readNext[tid], totalKeysInFile[tid]);
         readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
         break;
-        readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
-        }
+        }*/
+    /*    readBufMap[tid].erase(readBufMap[tid].begin(), readBufMap[tid].end());
      }
-    else{
+    else{*/
         ComputeBECut(tid, refineMap[tid]);
     //countTotalPECut(tid);
         refineMap[tid].erase(refineMap[tid].begin(), refineMap[tid].end());
-    }
+   // }
   }
 
 }
