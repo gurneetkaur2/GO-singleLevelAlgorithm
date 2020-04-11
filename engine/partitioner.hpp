@@ -573,6 +573,7 @@ void Partitioner::initiateInMemoryRefine(unsigned tid) {
 
 //--------------------------------------------------
 bool Partitioner::readInMem(unsigned tid) {
+  //fprintf(stderr,"\nTID %d RefineMap :%d readNext: %d, totalkeys: %d ", tid, refineMap[tid].size(), totalKeysInFile[tid]);
    for (auto it = std::next(refineMap[tid].begin(), readNext[tid]); it != refineMap[tid].end(); ++it) {
      if(readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])
        return false;
@@ -618,7 +619,7 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
          IdType dst = bndvert[i];
         //   fprintf(stderr,"\nTID: %d, src :%d, dst: %d", tid, src, dst); 
         //   fprintf(stderr,"\n"); 
-  //               fprintf(stderr,"where[%d]: %d, where[%d]: %d\n", src, where[src], dst ,where[dst]);
+    //             fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d ", src, where[src], dst ,where[dst]);
                  if( where[dst] != -1 && where[src] != where[dst] ) {
                //  if( where[src] != where[dst] ) {
            //         fprintf(stderr,"Edge CUT tid: %d\n", tid);
@@ -640,7 +641,7 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
     pthread_mutex_lock(&locks[tid]);
      totalCuts += totalPECuts[tid];
     pthread_mutex_unlock(&locks[tid]);
-    //fprintf(stderr,"\ntPECuts[%d]: %d, totalCuts: %d\n", tid, totalPECuts[tid]/2, totalCuts/2);
+   // fprintf(stderr,"\ntPECuts[%d]: %d, totalCuts: %d\n", tid, totalPECuts[tid]/2, totalCuts/2);
 
 }
 
@@ -1078,7 +1079,7 @@ void Partitioner::inMemRefine(const unsigned tid, const unsigned hipart, const u
      k += dTable[hipart].size(); //reach_end;
    //  if (maxGain == -1 && loopGain >= 50) {//reach_end >= readBufMap[tid].size() ){
       //fprintf(stderr,"\n tid %d refinemap size: %d, reach_end %d ", tid, refineMap[tid].size(), reach_end);
-     if (maxGain == -1 && (reach_end)  >= refineMap[tid].size()){// && (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])){
+     if (maxGain == -1) {// && (reach_end)  >= refineMap[tid].size()){// && (readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])){
       //  fprintf(stderr,"\n Partition %d is refined with whereMax partition %d ***** refine Map Size %d", hipart, whereMax, refineMap[tid].size());
   //  fprintf(stderr,"\nTID %d is going to break out of while inMEM with maxgain -1", tid);
     //    if(readBufMap[tid].size() <= kBItems)
@@ -1234,7 +1235,7 @@ while(true) {
     else{*/
          ComputeBECut(tid, refineMap[tid]);
        //  if(tid == 0) countTotalPECut(tid);
-         refineMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
+     //    refineMap[tid].clear(); //erase(refineMap[tid].begin(), it) erase when writing to disk
      // }
        break;
     }
@@ -1281,7 +1282,7 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
   // stime = 0.0;
 //  ofile<<"Batch Size - " << batchSize <<"\t KItems - "<<kBItems<<std::endl;
   for(unsigned i = 0; i <= nVtces; ++i){
-     if(gWhere[i] != -1){// && gWhere[i] == tid){
+     if(gWhere[i] != -1 && gWhere[i] == tid){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){
  //      std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
    //    stime -= getTimer();
