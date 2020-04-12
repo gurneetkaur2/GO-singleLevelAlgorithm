@@ -619,10 +619,10 @@ void Partitioner::ComputeBECut(const unsigned tid, const std::vector<unsigned>& 
          IdType dst = bndvert[i];
         //   fprintf(stderr,"\nTID: %d, src :%d, dst: %d", tid, src, dst); 
         //   fprintf(stderr,"\n"); 
-    //             fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d ", src, where[src], dst ,where[dst]);
+               //  fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d ", src, where[src], dst ,where[dst]);
                  if( where[dst] != -1 && where[src] != where[dst] ) {
                //  if( where[src] != where[dst] ) {
-           //         fprintf(stderr,"Edge CUT tid: %d\n", tid);
+                //    fprintf(stderr,"Edge CUT tid: %d\n", tid);
                     ebnd++;
     		    totalPECuts[tid]++;
                    // dst = adjncy[j];
@@ -685,7 +685,10 @@ unsigned Partitioner::countTotalPECut(const unsigned tid) {
           totalCuts += totalPECuts[i];
       }
 
+   if(!getWrittenToDisk())
    return (totalCuts/2);
+   else
+     return totalCuts;
 }
 
 //--------------------------------------------------
@@ -1172,7 +1175,7 @@ bool Partitioner::refine(const unsigned tid) {
   unsigned partition = tid;
     unsigned partbound = min(totalCombined[tid]-readNext[tid], kBItems); 
   RecordType* parts = new RecordType[partbound];
-//  fprintf(stderr,"\nREFINE tid: %d, totalCombined: %d, readNext[tid]: %d, keys to read: %d \n", tid, totalCombined[tid], readNext[tid], partbound);
+// fprintf(stderr,"\nREFINE tid: %d, totalCombined: %d, readNext[tid]: %d, keys to read: %d \n", tid, totalCombined[tid], readNext[tid], partbound);
  //for(unsigned ckey = readNextInBatch[partition]; ckey < totalCombined[partition]; ckey += batchSize){
     if (partbound > 0 && readNext[tid] < totalCombined[tid])
       cio->file_get_batch(tid, readNext[tid], partbound, parts); 
