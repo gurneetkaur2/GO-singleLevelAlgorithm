@@ -438,7 +438,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
   if(nparts <= 16 && bSize >=5000){
     if(nVertices < 5000000){
     if(nparts <= 2 && bSize < 16000)
-      nrefiners = nparts * 4;
+      nrefiners = nparts * 2;
     else if (nparts >= 4 && bSize < 16000)
       nrefiners = nparts * 2;
     }
