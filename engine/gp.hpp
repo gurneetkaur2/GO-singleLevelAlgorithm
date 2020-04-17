@@ -141,10 +141,18 @@ void* doRefine(void* arg)
  	       partitioner.pIdsCompleted[tid][*it] = true;
                continue;
 	     }
+       else if (hipart < mr->nParts && whereMax >= mr->nParts){
+          partitioner.pIdsCompleted[tid][*it] = true;
+          continue;
+       }
+       else if ( hipart >= mr->nParts && whereMax < mr->nParts) {
+         partitioner.pIdsCompleted[tid][*it] = true;
+         continue;
+       }
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
 	//time_refine += getTimer();
 
-  //      fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
+    //    fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
 //	time_refine = -getTimer();
        // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
             partitioner.bRefine(tid, hipart, whereMax, ret);
@@ -226,6 +234,14 @@ void* doInMemoryRefine(void* arg) {
  	       partitioner.pIdsCompleted[tid][*it] = true;
                continue;
 	     }
+       else if (hipart < mr->nParts && whereMax >= mr->nParts){
+          partitioner.pIdsCompleted[tid][*it] = true;
+          continue;
+       }
+       else if ( hipart >= mr->nParts && whereMax < mr->nParts) {
+         partitioner.pIdsCompleted[tid][*it] = true;
+         continue;
+       }
         bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
 	//time_refine += getTimer();
 
@@ -292,7 +308,7 @@ void GraphParts::run()
 	fprintf(stderr, "Init Graph partitioners in-Memory Buffers\n");
 
         double init_time = -getTimer();
-	partitioner.initg(nVertices, hDegree, nThreads, batchSize, kBItems, nParts); // GK 
+	partitioner.initg(nVertices, hDegree, nThreads, batchSize, kBItems, nParts, nrefiners); // GK 
 
 
 	fprintf(stderr, "Partitioning input for Parallel Reads\n");
@@ -300,15 +316,26 @@ void GraphParts::run()
 
 	end_read.resize(nThreads, 0);
 	mparts_times.resize(nThreads, 0.0);
-	refine_times.resize(nParts, 0.0);
+// if(nParts < 10){
+	refine_times.resize(nrefiners, 0.0);
+        writeBuf_times.resize(nThreads, 0.0);
+        flushResidues_times.resize(nThreads, 0.0);
+        infinimem_read_times.resize(nrefiners, 0.0);
+        infinimem_write_times.resize(nThreads, 0.0);
+        infinimem_cread_times.resize(nrefiners, 0.0);
+        infinimem_cwrite_times.resize(nrefiners, 0.0);
+/*    }
+    else{
+        refine_times.resize(nParts, 0.0);
         writeBuf_times.resize(nThreads, 0.0);
         flushResidues_times.resize(nThreads, 0.0);
         infinimem_read_times.resize(nParts, 0.0);
         infinimem_write_times.resize(nThreads, 0.0);
         infinimem_cread_times.resize(nParts, 0.0);
         infinimem_cwrite_times.resize(nParts, 0.0);
+   }*/
         localCombinedPairs.resize(nThreads, uint64_t(0));
- 
+
  	init_time += getTimer();
 
 	fprintf(stderr, "Reading Graph from file\n");
@@ -322,12 +349,12 @@ void GraphParts::run()
 
 	 if(!partitioner.getWrittenToDisk()) {
 	    fprintf(stderr, "Running InMemoryRefiners\n");
-	    parallelExecute(doInMemoryRefine, this, nParts);
+	    parallelExecute(doInMemoryRefine, this, nrefiners);
 //	    partitioner.releaseInMemStructures();
 	    } else {
 	      partitioner.releaseInMemStructures();
 	fprintf(stderr, "\nRunning Combiners\n");
-	parallelExecute(doRefine, this, nParts);
+	parallelExecute(doRefine, this, nrefiners);
 
 	partitioner.releaseReadPartStructures();
 //	fprintf(stderr, "\nRunning Refiners\n");
@@ -408,10 +435,23 @@ void GraphParts::init(const std::string input, const std::string type, const uns
  	hDegree = hdegree;
         inType = type;
 	nThreads = nthreads;
-	nParts = nparts;
+  if(nparts < 8 && bSize >=5000){
+    if(nparts <= 2)
+      nrefiners = nparts * 4;
+    else if (nparts >= 4)
+      nrefiners = nparts * 2;
+  }
+  else if(nparts < 8 && bSize < 5000){
+    nrefiners = nparts * 2;
+  }
+  else
+	  nrefiners = nparts;
+
 	batchSize = bSize;
 	kBItems = kItems;
-  
+ 
+  nParts = nparts;
+   
  // if(inType == "adj")
      numLines = nVertices;
                
@@ -441,11 +481,11 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	std::cout << "topk: " << kBItems << std::endl;
 
 	pthread_barrier_init(&barMParts, NULL, nThreads);
-	pthread_barrier_init(&barRead, NULL, nParts);
-	pthread_barrier_init(&barRefine, NULL, nParts);
-	pthread_barrier_init(&barWriteInfo, NULL, nParts);
-	pthread_barrier_init(&barClear, NULL, nParts);
-	pthread_barrier_init(&barAfterRefine, NULL, nParts);
+	pthread_barrier_init(&barRead, NULL, nrefiners);
+	pthread_barrier_init(&barRefine, NULL, nrefiners);
+	pthread_barrier_init(&barWriteInfo, NULL, nrefiners);
+	pthread_barrier_init(&barClear, NULL, nrefiners);
+	pthread_barrier_init(&barAfterRefine, NULL, nrefiners);
 }
 
 //--------------------------------------------  GK

@@ -24,7 +24,7 @@
 //pthread_mutex_t lock_buffer = PTHREAD_MUTEX_INITIALIZER;
 //------------------------------------------------- GK
 // Initialize in-memory Buffers
-void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads, unsigned bSize, unsigned kItems, unsigned nParts)
+void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads, unsigned bSize, unsigned kItems, unsigned nParts, unsigned nrefiners)
 {
   //nBuffers = pow(buffers, 2); // number of buffers is square of number of threads
   //nBuffers = nMappers * nReducers;
@@ -32,7 +32,9 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
   nVtces = nVertices;
   nRows = nThreads;
   hiDegree = hDegree;
-  nCols = nParts; //TODO: should be two by default
+//     nCols = nParts * 2; //TODO: should be two by default
+     nCols = nrefiners;
+     nparts = nParts;
   writtenToDisk = false;
   partRefine = false;
   batchSize = bSize;
@@ -119,7 +121,7 @@ void Partitioner::shutdown()
   delete cio;
    for (unsigned i = 0; i < nCols; i++){
     bndIndMap[i].clear();
-    refineMap[i].clear();
+   // refineMap[i].clear();
   }
   delete[] readNext;
   delete[] totalPECuts;
@@ -128,6 +130,8 @@ void Partitioner::shutdown()
  // delete[] totalKeysRead;
   delete[] bndIndMap;
   delete[] dTable;
+  delete[] readBufMap;
+  delete[] refineMap;
 }
 
 //-------------------------------------------------
@@ -143,12 +147,12 @@ void Partitioner::releaseReadPartStructures()
   lookUpTable->clear();
   keysPerBatch->clear();
    for (unsigned i = 0; i < nCols; i++){
-       readBufMap[i].clear();
+     //  readBufMap[i].clear();
        readNextInBatch[i].clear();
   }
 
 
-  delete[] readBufMap;
+ // delete[] readBufMap;
   delete[] readNextInBatch;
   delete[] fetchBatchIds;
   delete[] fetchPIds;
@@ -189,27 +193,36 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
     unsigned bufferId = hashKey(to) % nCols;
     unsigned buffer = tid * nCols + bufferId; 
     unsigned part = tid % nCols; // % nCols;
+    unsigned loc = bufferId % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
 
     if(hIdSize != 0){
       hIds.emplace(to, hIdSize); 
       // Put the records into different buffer randomly
       unsigned bufferId = hashKey(from) % nCols; 
       unsigned buffer = tid * nCols + bufferId; 
+      unsigned loc = bufferId % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
       // less chances of adjlist vertices being on boundary if they are hashed to the partition which has similar vertices as key; hence less edgecuts 
    }
 
-//   fprintf(stderr,"\nTID %d calculating where", tid);
+  // fprintf(stderr,"\nTID %d calculating where loc %d bufferId %d nparts %d ", tid, loc, bufferId, nparts);
     if(where[part].at(to) == -1){
-      where[part].at(to) = bufferId;
-  }
+      if(nparts < 8 )
+        where[part].at(to) = loc;
+      else
+        where[part].at(to) = bufferId;
+    }
 
 //  unsigned buffer = tid * nCols + bufferId;  
     unsigned whereFrom = hashKey(from) % nCols; 
+    unsigned whereloc = whereFrom % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
     if(where[part].at(from) == -1){
+      if(nparts < 8 )
+        where[part].at(to) = whereloc;
+      else
       where[part].at(from) = whereFrom;
   }
 
- // fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
+//  fprintf(stderr,"\nwhere[%d]: %d, where[%d]: %d, bufferID: %d\n\n", to, where[to], from, where[from], buffer);
 
   if (outBufMap[buffer].size() >= batchSize) {
 
@@ -423,13 +436,14 @@ void Partitioner::writeToInfinimem(const unsigned buffer, const IdType startKey,
 //      fprintf(stderr,"ct %d\t", ct); 
       }
    ++ct;
+      totalCombined[buffer]++;
 
   }
-    if (ct != noItems){
+  /*  if (ct != noItems){
   for (InMemoryConstIterator it = inMemMap.begin(); it != inMemMap.end(); ++it) {              //fprintf(stderr,"\n \n WTI- TID: %d,  Key: %d\n", buffer, it->first);
      } 
 //     fprintf(stderr,"\nBuffer: %d CT: %d noItems: %d InMemMap Size: %d\n", buffer, ct, noItems, inMemMap.size());
-}
+}*/
   assert(ct == noItems);
   //    fprintf(stderr,"\nWRITING TO INFINIMEM buffer: %d, startKey: %d, totalKeys: %d \n", buffer, startKey, totalKeysInFile[buffer]); 
   io->file_set_batch(buffer, startKey, noItems, records);
@@ -1282,7 +1296,7 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
   // stime = 0.0;
 //  ofile<<"Batch Size - " << batchSize <<"\t KItems - "<<kBItems<<std::endl;
   for(unsigned i = 0; i <= nVtces; ++i){
-     if(gWhere[i] != -1 && gWhere[i] == tid){
+     if(gWhere[i] != -1 && (gWhere[i] == tid || gWhere[i] == tid % nparts)){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){
  //      std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
    //    stime -= getTimer();

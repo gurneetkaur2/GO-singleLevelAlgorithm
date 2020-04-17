@@ -57,7 +57,7 @@ class Partitioner
 {
 
   public:
-    void initg(unsigned nVertices, unsigned hDegree, unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts);
+    void initg(unsigned nVertices, unsigned hDegree, unsigned nMemParts, unsigned bSize, unsigned kItems, unsigned nReduceParts, unsigned nrefiners);
 //    void coarsen(const unsigned tid, const graph_t cgraph, const unsigned CoarsenTo, const unsigned int* numEdgesSupRowsToRows, const  unsigned int* mapSupRowstoRows);
     //void writeInit(const unsigned tid);
     void writeInit();
@@ -173,7 +173,9 @@ class Partitioner
     unsigned batchSize;  
     unsigned kBItems;  
     unsigned totalCuts; 
-//    unsigned nparts;  
+    //unsigned nRefiners; 
+    unsigned nparts;  
+
     bool firstInit;
     IdType* totalPECuts; 
     IdType* totalPCuts; 

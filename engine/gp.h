@@ -45,6 +45,7 @@ class GraphParts
     unsigned batchSize;  //Number of items in a batch
     unsigned kBItems;  //Top-k items to be fetched from in memory coarsen
     unsigned nParts;
+    unsigned nrefiners;
     IdType numLines;
     std::vector<unsigned> end_read;
     std::vector<double> mparts_times;
