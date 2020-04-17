@@ -435,13 +435,23 @@ void GraphParts::init(const std::string input, const std::string type, const uns
  	hDegree = hdegree;
         inType = type;
 	nThreads = nthreads;
-  if(nparts < 8 && bSize >=5000){
-    if(nparts <= 2)
+  if(nparts <= 16 && bSize >=5000){
+    if(nVertices < 5000000){
+    if(nparts <= 2 && bSize < 16000)
       nrefiners = nparts * 4;
-    else if (nparts >= 4)
+    else if (nparts >= 4 && bSize < 16000)
       nrefiners = nparts * 2;
+    }
+    else{
+    if(nparts <= 2 && bSize < 16000)
+      nrefiners = nparts * 8;
+    else if (nparts <= 8 && bSize < 16000)
+      nrefiners = nparts * 4;
+    else if (nparts <= 16 && bSize < 16000)
+      nrefiners = nparts * 2;
+    }
   }
-  else if(nparts < 8 && bSize < 5000){
+  else if(nparts <= 8 && bSize < 5000){ // for smaller graphs upto 8 parts
     nrefiners = nparts * 2;
   }
   else
