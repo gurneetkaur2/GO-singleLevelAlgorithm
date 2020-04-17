@@ -699,10 +699,10 @@ unsigned Partitioner::countTotalPECut(const unsigned tid) {
           totalCuts += totalPECuts[i];
       }
 
-   if(!getWrittenToDisk())
+//   if(!getWrittenToDisk())
    return (totalCuts/2);
-   else
-     return totalCuts;
+//   else
+//     return totalCuts;
 }
 
 //--------------------------------------------------
