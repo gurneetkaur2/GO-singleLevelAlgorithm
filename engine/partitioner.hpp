@@ -217,7 +217,7 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
     unsigned whereloc = whereFrom % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
     if(where[part].at(from) == -1){
       if(nparts < 8 )
-        where[part].at(to) = whereloc;
+        where[part].at(from) = whereloc;
       else
       where[part].at(from) = whereFrom;
   }
