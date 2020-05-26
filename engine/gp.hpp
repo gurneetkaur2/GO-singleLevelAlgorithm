@@ -280,6 +280,8 @@ void* doInMemoryRefine(void* arg) {
     if(tid == 0)
 		   mr->partitioner.gCopy(tid);
        //   partitioner.setTotalCuts(tid);
+    if(tid == 0)
+        fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
           mr->refineInit(tid);
     // fprintf(stderr,"\nTID %d RefineMap size: %d Total Cuts: %d", tid, partitioner.refineMap[tid].size(), partitioner.countTotalPECut(tid));
       //  partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
