@@ -136,7 +136,7 @@ class KParts : public GraphParts
     KParts kp;
     if (argc != 10)
     {
-      std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <batchsize> <kitems> <outputprefix>" << std::endl;
+      std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <memsize> <kitems> <outputprefix>" << std::endl;
       return 0;
     }
 
@@ -147,7 +147,7 @@ class KParts : public GraphParts
     IdType nvertices = atoi(argv[3]);
  //   IdType nedges = atoi(argv[4]);
     unsigned nthreads = atoi(argv[5]);
-    unsigned batchSize = atoi(argv[7]);
+    unsigned memSize = atoi(argv[7]);
     unsigned kitems = atoi(argv[8]);
     unsigned nparts = atoi(argv[6]);
     unsigned hDegree = atoi(argv[4]);
@@ -164,9 +164,9 @@ class KParts : public GraphParts
     //fprintf(stderr, "Edges per partition: %zu\n", edgesPerMPart);
 
 
-    assert(batchSize > 0);
+    assert(memSize > 0);
 
-    kp.init(fileName, fileType, nvertices, hDegree, nthreads, nparts, batchSize, kitems);
+    kp.init(fileName, fileType, nvertices, hDegree, nthreads, nparts, memSize, kitems);
     fprintf(stderr,"\nCreating partitions ..");
     double runTime = -getTimer();
     kp.run(); 

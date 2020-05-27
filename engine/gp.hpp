@@ -280,20 +280,21 @@ void* doInMemoryRefine(void* arg) {
     if(tid == 0)
 		   mr->partitioner.gCopy(tid);
        //   partitioner.setTotalCuts(tid);
+	pthread_barrier_wait(&(mr->barRefine));
     if(tid == 0)
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
           mr->refineInit(tid);
     // fprintf(stderr,"\nTID %d RefineMap size: %d Total Cuts: %d", tid, partitioner.refineMap[tid].size(), partitioner.countTotalPECut(tid));
       //  partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
-          partitioner.cread(tid);
-	pthread_barrier_wait(&(mr->barRefine));
-       if(tid == 0){
-        partitioner.setTotalCuts(tid);
+    //      partitioner.cread(tid);
+	//pthread_barrier_wait(&(mr->barRefine));
+    //   if(tid == 0){
+      //  partitioner.setTotalCuts(tid);
 //	time_refine += getTimer();
 
-        fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+       // fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	//time_refine = -getTimer();
-  	}
+  //	}
 	//time_refine += getTimer();
 //	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
 //	time_refine = -getTimer();
@@ -424,7 +425,7 @@ void GraphParts::partitionInputForParallelReads() {
 }
 
 //--------------------------------------------
-void GraphParts::init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems) {
+void GraphParts::init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned mSize, const unsigned kItems) {
 
 	inputFileName = input;
 	std::cout << "Input file name: " << inputFileName << std::endl;
@@ -437,8 +438,13 @@ void GraphParts::init(const std::string input, const std::string type, const uns
  	hDegree = hdegree;
         inType = type;
 	nThreads = nthreads;
-  if(nparts <= 16 && bSize >=5000){
-      nrefiners = nparts * 2;
+
+  unsigned wload = mSize / (nThreads * nparts);
+	batchSize = wload + mSize % (nThreads * nparts) ;
+	//batchSize = mSize; // / (nThreads * nparts);
+	fprintf(stderr, "batch size: %zu\n", batchSize);
+//  if(nparts <= 16 && batchSize >=5000){
+ //     nrefiners = nparts * 2;
  /*   if(nVertices < 5000000){
     if(nparts <= 2 && bSize < 16000)
       nrefiners = nparts * 2;
@@ -455,14 +461,13 @@ void GraphParts::init(const std::string input, const std::string type, const uns
     else if (nparts <= 16 )
       nrefiners = nparts * 2;
     }*/
-  }
-  else if(nparts <= 8 && bSize < 5000){ // for smaller graphs upto 8 parts
+/*  }
+   else if(nparts <= 8 && batchSize < 5000){ // for smaller graphs upto 8 parts
     nrefiners = nparts * 2;
   }
   else
-	  nrefiners = nparts;
-
-	batchSize = bSize;
+  */
+  nrefiners = nparts;
 	kBItems = kItems;
  
   nParts = nparts;
