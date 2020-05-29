@@ -280,21 +280,22 @@ void* doInMemoryRefine(void* arg) {
     if(tid == 0)
 		   mr->partitioner.gCopy(tid);
        //   partitioner.setTotalCuts(tid);
-	pthread_barrier_wait(&(mr->barRefine));
+//	pthread_barrier_wait(&(mr->barRefine));
     if(tid == 0)
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
           mr->refineInit(tid);
     // fprintf(stderr,"\nTID %d RefineMap size: %d Total Cuts: %d", tid, partitioner.refineMap[tid].size(), partitioner.countTotalPECut(tid));
       //  partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
-    //      partitioner.cread(tid);
-	//pthread_barrier_wait(&(mr->barRefine));
-    //   if(tid == 0){
-      //  partitioner.setTotalCuts(tid);
-//	time_refine += getTimer();
+          partitioner.cread(tid);
+	  pthread_barrier_wait(&(mr->barRefine));
+       if(tid == 0){
+         partitioner.setTotalCuts(tid);
+        // time_refine += getTimer();
 
-       // fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
-	//time_refine = -getTimer();
-  //	}
+        fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
+	//   time_refine = -getTimer();
+  	}
+
 	//time_refine += getTimer();
 //	fprintf(stderr, "thread %u finished InMemory Refining\n", tid);
 //	time_refine = -getTimer();
