@@ -26,55 +26,43 @@ typedef struct edgeList
 
 int main(int argc, char* argv[])
 {
-  if(argc !=4){
-    cout << "\nUsage: <input adj_graph> <nparts> <num_vertices>\n";
-  assert(argc == 4);
+  if(argc !=6){
+    cout << "\nUsage: <input adj_graph> <partsfilename> <nparts> <num_vertices> <f-suffix> \n";
+  assert(argc == 6);
   }
   string graphName = argv[1];
-  string transformedGraphName = graphName + ".newGraph";
+  string partFName = argv[2];
  // string adjGraphName = "adj_" + graphName;
   string boundariesName = graphName + ".boundaries";
 //  string commName = graphName + ".comm";
   string sourceName = graphName + ".src";
+  string suffix = argv[5];
+  idx_t nparts = atoi(argv[3]);
+  unsigned long long  num_vertices = atoi(argv[4]);
+  cout <<"\nfileName " << graphName;
 
-  idx_t nparts = atoi(argv[2]);
-  unsigned long long  num_vertices = atoi(argv[3]);
-
-  string partsDir = "";
+ /* string partsDir = "";
   partsDir += PARTS_PATH;
-  partsDir += argv[2];
+  partsDir += argv[3];
   partsDir += "/";
+ */  string partsDir;
+   // for(int i = 8; i < 25; i = i+8){
+           partsDir = "";
+           partsDir += PARTS_PATH;
+           partsDir += argv[3];
+           partsDir += "/";
 
   mkdir((BASE_PATH + partsDir).c_str(), 0777); 
 
- /* unsigned long long num_edges = 0, num_vertices = 0;
-  {
-    unsigned long long to, from, edge;
-    string graphPath = BASE_PATH + graphName;
-    std::ifstream infile(graphPath.c_str());
-    while (infile >> to >> from >> edge) {
-      num_vertices = max(num_vertices, max(to, from));
-      ++num_edges;
-    }
-  }
-  ++num_vertices;
-  num_edges *= 2;
-
-  idx_t nvtxs = num_vertices;
-  idx_t ncon = 1; // TODO
-
-  idx_t* xadj = new idx_t[num_vertices + 1];
-  idx_t* adjncy = new idx_t[num_edges]; 
-  idx_t* vsize = new idx_t[num_vertices];
-  idx_t* vwgt = new idx_t[num_vertices];
-  //real_t ubvec[] = {1.5}; // TODO
-  real_t* ubvec = NULL;
-*/
+  cout <<"\nBase path " << (BASE_PATH + partsDir) ;
+  // }
  // EdgeList* edgeLists = new EdgeList[num_vertices];
   ++num_vertices;
+  cout <<"\nnum_vertices: " <<num_vertices;
   EdgeList* ogEdgeLists = new EdgeList[num_vertices];
 
   string graphPath = BASE_PATH + graphName;
+  cout <<"\nBefore reading Adj file " ;
 
   std::ifstream infile(graphPath.c_str());
  // std::vector<unsigned> from;
@@ -92,90 +80,28 @@ int main(int argc, char* argv[])
         ogEdgeLists[to].edges.insert(from);
           } 
   }
-/*  unsigned long long numEdges = 0;
-  for(unsigned long long i=0; i<num_vertices; ++i)
-  {
-    numEdges += edgeLists[i].edges.size();  
-    vsize[i] = 1;
-    vwgt[i] = edgeLists[i].edges.size();  
-  }
-
-  string adjPath = BASE_PATH + adjGraphName;
-  ofstream graphFile;
-  graphFile.open(adjPath.c_str());
-
-  graphFile << num_vertices << " " << numEdges/2 << " 110 1\n"; 
-
-  unsigned long long adj_i = 0;
-  for(unsigned long long i=0; i<num_vertices; ++i)
-  {
-    graphFile << "1 1";
-    xadj[i] = adj_i;
-    set<unsigned long long>::iterator it = edgeLists[i].edges.begin();
-    while(it != edgeLists[i].edges.end())
-    {
-      graphFile << " " << (*it) + 1;
-      adjncy[adj_i++] = *it;
-      ++it;    
-    }
-    graphFile << "\n";
-  }
-  xadj[num_vertices] = adj_i;
-
-  graphFile.close();
-*/
-  /*
-     idx_t options[METIS_NOPTIONS];
-
-     options[METIS_OPTION_CTYPE] = METIS_CTYPE_SHEM;
-     options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_VOL;
-     options[METIS_OPTION_RTYPE] = METIS_RTYPE_GREEDY;
-     options[METIS_OPTION_IPTYPE] = METIS_IPTYPE_RANDOM;
-     options[METIS_OPTION_NUMBERING] = 0;
-     options[METIS_OPTION_NITER] = 10; // TODO
-     options[METIS_OPTION_SEED] = 29;
-     options[METIS_OPTION_CONTIG] = 0;
-     options[METIS_OPTION_MINCONN] = 0;
-     options[METIS_OPTION_DBGLVL] = METIS_DBG_INFO;
-     */
-
-/*  idx_t* options = NULL;
-
-  idx_t objval;
-  idx_t* part = new idx_t[nvtxs];
-  part[0] = 256;
-
-  if(nparts <= 8)
-    METIS_PartGraphRecursive(&nvtxs, &ncon, xadj, adjncy, vwgt, vsize, NULL, &nparts, NULL, ubvec, options, &objval, part);
-  else
-    METIS_PartGraphKway(&nvtxs, &ncon, xadj, adjncy, vwgt, vsize, NULL, &nparts, NULL, ubvec, options, &objval, part);
-
-  string commPath = BASE_PATH + partsDir + commName;
-  ofstream commFile;
-  commFile.open(commPath.c_str());
-  commFile << "Communication cost: " << objval << endl; // << "Partitions:" << endl;
-  //for(unsigned long long i=0; i<nvtxs; ++i)
-  //cout << part[i] << endl;
-*/
 
   // new vertex IDs of vertices in the same partition
   unsigned long long* vertexToNewVertex = new unsigned long long[num_vertices];
   // stores the old vertex IDs 
   unsigned long long* newVertexToVertex = new unsigned long long[num_vertices];
-  unsigned long long new_id = 1;
+ // unsigned long long new_id = 1;
 
   unsigned long long* part_boundaries = new unsigned long long[nparts];
   idx_t* part = new idx_t[num_vertices];
   //unsigned v;
 
-  string partsPath = BASE_PATH + partsDir + graphName + to_string(nparts);
+    for(int z = 8; z < 25; z=z+8){
+              unsigned long long new_id = 1;
+              string partsPath = BASE_PATH + partsDir + partFName + to_string(z);
+  //string partsPath = BASE_PATH + partsDir + partFName + to_string(nparts);
   cout <<"\nPartPath: " << partsPath  << "\tfileName " << graphName;
   std::ifstream partFile(partsPath.c_str());
   // partInFile.open(partsPath.c_str());
    //assert(partInFile.is_open());
    unsigned long long p = 1;
      unsigned long long v;
-
+  
      // READ part file and match *******
   //   part[p] = 0;
     // ++p;
@@ -219,13 +145,14 @@ int main(int argc, char* argv[])
     {
       new_set.insert(vertexToNewVertex[*it]);
 //      cout <<"\ni: " << i << "\t *it: " << *it << endl;
-      cout <<"\n swapping " << *it << " with " <<  vertexToNewVertex[*it] << endl;
+//      cout <<"\n swapping " << *it << " with " <<  vertexToNewVertex[*it] << endl;
       ++it;
     }
     ogEdgeLists[i].edges.clear();
     ogEdgeLists[i].edges.swap(new_set);
   }
 
+  string transformedGraphName = graphName + suffix + to_string(z) + ".newGraph";
   string transPath = BASE_PATH + partsDir + transformedGraphName;
   cout <<"\ntransPath: " << transPath  << "\n";
   ofstream transformedGraphFile;
@@ -256,7 +183,7 @@ int main(int argc, char* argv[])
   for(int i=0; i<nparts; ++i)
     boundariesFile << part_boundaries[i] << endl;
   boundariesFile.close();
-
+ }
   delete[] ogEdgeLists;
   delete[] part;
   delete[] vertexToNewVertex;
