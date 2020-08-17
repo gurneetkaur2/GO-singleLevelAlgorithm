@@ -50,6 +50,7 @@ class GraphParts
     std::vector<unsigned> end_read;
     std::vector<double> mparts_times;
     std::vector<double> refine_times;
+    std::vector<double> aftr_refine_times;
 
     std::vector<std::string> fileList;
 

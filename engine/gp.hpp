@@ -177,10 +177,13 @@ void* doRefine(void* arg)
 	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barAfterRefine));
 //  if(tid == 0)
+	double time_aftr_refine = -getTimer();
 	  mr->afterRefine(tid, mr->nVertices);
+	time_aftr_refine += getTimer();
 
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
+	mr->aftr_refine_times[tid] += time_aftr_refine;
 //	pthread_barrier_wait(&(mr->barRefine));
        /*if(tid == 0){
         partitioner.setTotalCuts(tid);
@@ -270,11 +273,14 @@ void* doInMemoryRefine(void* arg) {
 	fprintf(stderr, "\nthread %u waiting for others to finish InMemory Refine\n", tid);
 	time_refine = -getTimer();
 	pthread_barrier_wait(&(mr->barAfterRefine));
+	double time_aftr_refine = -getTimer();
 //  if(tid == 0)
   	mr->afterRefine(tid, mr->nVertices);
 
+	time_aftr_refine += getTimer();
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
+	mr->aftr_refine_times[tid] += time_aftr_refine;
 
 	pthread_barrier_wait(&(mr->barClear));
     if(tid == 0)
@@ -322,6 +328,7 @@ void GraphParts::run()
 	mparts_times.resize(nThreads, 0.0);
 // if(nParts < 10){
 	refine_times.resize(nrefiners, 0.0);
+	aftr_refine_times.resize(nrefiners, 0.0);
         writeBuf_times.resize(nThreads, 0.0);
         flushResidues_times.resize(nThreads, 0.0);
         infinimem_read_times.resize(nrefiners, 0.0);
@@ -383,6 +390,9 @@ void GraphParts::run()
 
         std::cout<< " Partition+Refine time: " << ((*mparts_time) + (*refine_time)) << " msec" <<std::endl;
         std::cout<< " Init+Partition+Refine time: " << ((init_time) + (*mparts_time) + (*refine_time)) << " msec" <<std::endl;
+
+	auto aftr_refine_time = max_element(std::begin(aftr_refine_times), std::end(aftr_refine_times));
+	std::cout << " Writing to output time : " << *aftr_refine_time << " msec" << std::endl;
 
 //	auto refine_time = max_element(std::begin(refine_times), std::end(refine_times));
 //	std::cout << " Refine time : " << *refine_time << " msec" << std::endl;
