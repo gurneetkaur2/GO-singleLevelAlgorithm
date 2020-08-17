@@ -130,6 +130,7 @@ class Partitioner
  //   thread_local double stime;
 
     bool getWrittenToDisk() { return writtenToDisk; }
+    bool getBndSet() { return bndSet; }
     bool getPartRefine() { return partRefine; }
     IdType getTotalPECuts(const unsigned tid) { return totalPECuts[tid]; }
     IdType setTotalPECuts(const unsigned tid) { totalPECuts[tid] = 0; }
@@ -193,6 +194,7 @@ class Partitioner
     FileIO<RecordType> *cio;  //GK
     bool writtenToDisk;
     bool partRefine;
+    bool bndSet;
 };
 
 #endif // __PARTITIONER_H__
