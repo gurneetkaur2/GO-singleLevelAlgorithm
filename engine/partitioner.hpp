@@ -463,11 +463,11 @@ void Partitioner::bWriteToInfinimem(const unsigned buffer, const IdType startKey
    //  fprintf(stderr,"\n BWTI- TID: %d, startKey: %d ", buffer, startKey); 
   for (InMemoryConstIterator it = begin; it != end; ++it) {
      records[ct].set_rank(it->first);
-      fprintf(stderr,"\n BWTI- TID: %d, startKey: %d, Key: %d\t, Values: ", buffer, startKey, it->first); 
+  //    fprintf(stderr,"\n BWTI- TID: %d, startKey: %d, Key: %d\t, Values: ", buffer, startKey, it->first); 
 
     for (std::vector<unsigned>::const_iterator vit = it->second.begin(); vit != it->second.end(); ++vit){
       records[ct].add_nbrs(*vit);
-      fprintf(stderr,"%d\t", *vit); 
+    //  fprintf(stderr,"%d\t", *vit); 
       }
       ++ct;
       totalCombined[buffer]++;
