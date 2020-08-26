@@ -230,12 +230,12 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
   if (outBufMap[buffer].size() >= batchSize) {
 
     infinimem_write_times[tid] -= getTimer();     
-    pthread_mutex_lock(&locks[bufferId]);
+//    pthread_mutex_lock(&locks[bufferId]);
 //    fprintf(stderr,"\nTID %d outbufmap buffer %d full with %d records noItems:%d\n", tid, buffer, outBufMap[buffer].size(), nItems[buffer]);
    
     writeToInfinimem(bufferId, totalKeysInFile[bufferId], outBufMap[buffer].size(), outBufMap[buffer]);
     totalKeysInFile[bufferId] += nItems[buffer];
-    pthread_mutex_unlock(&locks[bufferId]);
+  //  pthread_mutex_unlock(&locks[bufferId]);
     infinimem_write_times[tid] += getTimer();
 
     outBufMap[buffer].clear();
@@ -592,7 +592,7 @@ void Partitioner::initiateInMemoryRefine(unsigned tid) {
 
 //--------------------------------------------------
 bool Partitioner::readInMem(unsigned tid) {
-  fprintf(stderr,"\nTID %d RefineMap :%d readNext: %d, totalkeys: %d ", tid, refineMap[tid].size(), totalKeysInFile[tid]);
+//  fprintf(stderr,"\nTID %d RefineMap :%d readNext: %d, totalkeys: %d ", tid, refineMap[tid].size(), totalKeysInFile[tid]);
    for (auto it = std::next(refineMap[tid].begin(), readNext[tid]); it != refineMap[tid].end(); ++it) {
      if(readNext[tid] + readBufMap[tid].size() >= totalKeysInFile[tid])
        return false;
@@ -607,7 +607,7 @@ bool Partitioner::readInMem(unsigned tid) {
      readBufMap[tid][key].push_back(*vit);
       }
    }
-  fprintf(stderr,"\nNEXT TID %d RefineMap :%d readNext: %d, totalkeys: %d ", tid, refineMap[tid].size(), totalKeysInFile[tid]);
+//  fprintf(stderr,"\nNEXT TID %d RefineMap :%d readNext: %d, totalkeys: %d ", tid, refineMap[tid].size(), totalKeysInFile[tid]);
    if(readNext[tid] < totalKeysInFile[tid]){
 	return true;
   }

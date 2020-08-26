@@ -286,7 +286,7 @@ void* doInMemoryRefine(void* arg) {
     if(tid == 0)
 		   mr->partitioner.gCopy(tid);
        //   partitioner.setTotalCuts(tid);
-//	pthread_barrier_wait(&(mr->barRefine));
+	pthread_barrier_wait(&(mr->barRefine));
     if(tid == 0)
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
           mr->refineInit(tid);
@@ -500,7 +500,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
                 assert(false);
 	}
 */
-	setRefiners(std::min(nThreads, nParts));
+	//setRefiners(std::min(nThreads, nParts));
 	//TODO:need to check if I need this --  nParts = std::min(nThreads, nParts);
 
 	std::cout << "nVertices: " << nVertices << std::endl;
