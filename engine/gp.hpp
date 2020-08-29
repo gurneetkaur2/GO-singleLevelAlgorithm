@@ -180,10 +180,11 @@ void* doRefine(void* arg)
 	double time_aftr_refine = -getTimer();
 	  mr->afterRefine(tid, mr->nVertices);
 	time_aftr_refine += getTimer();
+	mr->aftr_refine_times[tid] += time_aftr_refine;
 
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
-	mr->aftr_refine_times[tid] += time_aftr_refine;
+
 //	pthread_barrier_wait(&(mr->barRefine));
        /*if(tid == 0){
         partitioner.setTotalCuts(tid);
@@ -278,10 +279,10 @@ void* doInMemoryRefine(void* arg) {
   	mr->afterRefine(tid, mr->nVertices);
 
 	time_aftr_refine += getTimer();
-	time_refine += getTimer();
-	mr->refine_times[tid] += time_refine;
 	mr->aftr_refine_times[tid] += time_aftr_refine;
 
+	time_refine += getTimer();
+	mr->refine_times[tid] += time_refine;
 	pthread_barrier_wait(&(mr->barClear));
     if(tid == 0)
 		   mr->partitioner.gCopy(tid);
