@@ -93,8 +93,8 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
   //io = new OnePhaseFileIO<RecordType>("/tmp/gkaur007/mrdata/", nCols, 0/*UNUSED*/);
 //#else
  // io = new TwoPhaseFileIO<RecordType>("/tmp/gkaur007/mrdata/", nCols, 0/*UNUSED*/);
-  io = new TwoPhaseFileIO<RecordType>("/media/ssd1/gkaur007/mrdata/", nCols, 0/*UNUSED*/);
-  cio = new TwoPhaseFileIO<RecordType>("/media/ssd1/gkaur007/combdata/", nCols, 0/*UNUSED*/);
+  io = new TwoPhaseFileIO<RecordType>("/tmp/gkaur007/mrdata/", nCols, 0/*UNUSED*/);
+  cio = new TwoPhaseFileIO<RecordType>("/tmp/gkaur007/combdata/", nCols, 0/*UNUSED*/);
  // cio = new TwoPhaseFileIO<RecordType>("/tmp/gkaur007/combdata/", nCols, 0/*UNUSED*/);
 //#endif
 }
