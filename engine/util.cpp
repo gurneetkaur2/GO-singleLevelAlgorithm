@@ -136,7 +136,7 @@ IdType getNumLines(std::string fileName){
     return number_of_lines;
 }
 
-/*void getListOfFiles(std::string directory, std::vector<std::string>* fileList)
+void getListOfFiles(std::string directory, std::vector<std::string>* fileList)
 {
   DIR *dp;
   struct dirent *dirp;
@@ -181,7 +181,7 @@ void printFileNames(const std::string& dir, std::vector<std::string>* fileList, 
     out << dir << '/' << fileList->at(i) << std::endl;
   }
   out.close();
-}*/
+}
 
 unsigned stringHash(const std::string& str) {
   //return static_cast<unsigned>(tolower(str[0]) - 'a');
