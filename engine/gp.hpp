@@ -49,10 +49,10 @@ void* doMParts(void* arg)
   //  mr->writeInit(rand() % mr->nParts);
   //	fprintf(stderr, "\n After writeinit tid %d  ", tid);  //GK
   static std::atomic<unsigned> nextFileId(0);
-  unsigned fileId = 0;
-  while((fileId = nextFileId++) < mr->fileList.size()) {
+  unsigned fileId = tid;
+  while((nextFileId++) < mr->fileList.size()) {
     std::string fname = mr->inputFolder + "/" + mr->fileList.at(fileId);
-    if(fileId % 1000 == 0) fprintf(stderr, "thread %u working on file %d which is %s\n", tid, fileId, fname.c_str());
+   // if(fileId % 1000 == 0) fprintf(stderr, "thread %u working on file %d which is %s\n", tid, fileId, fname.c_str());
     std::ifstream infile(fname.c_str());
     ASSERT_WITH_MESSAGE(infile.is_open(), fname.c_str());
     std::string line;
@@ -194,10 +194,10 @@ void* doRefine(void* arg)
   double time_aftr_refine = -getTimer();
   mr->afterRefine(tid, mr->nVertices);
   time_aftr_refine += getTimer();
+  mr->aftr_refine_times[tid] += time_aftr_refine;
 
   time_refine += getTimer();
   mr->refine_times[tid] += time_refine;
-  mr->aftr_refine_times[tid] += time_aftr_refine;
   //	pthread_barrier_wait(&(mr->barRefine));
   /*if(tid == 0){
     partitioner.setTotalCuts(tid);
@@ -290,11 +290,11 @@ void* doInMemoryRefine(void* arg) {
   double time_aftr_refine = -getTimer();
   //  if(tid == 0)
   mr->afterRefine(tid, mr->nVertices);
+  mr->aftr_refine_times[tid] += time_aftr_refine;
 
   time_aftr_refine += getTimer();
   time_refine += getTimer();
   mr->refine_times[tid] += time_refine;
-  mr->aftr_refine_times[tid] += time_aftr_refine;
 
   pthread_barrier_wait(&(mr->barClear));
   if(tid == 0)
