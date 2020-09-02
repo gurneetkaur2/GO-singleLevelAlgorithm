@@ -22,8 +22,10 @@ class GraphParts
          
     // System provided default; overridable by user
     virtual void run();
+    void setInput(const std::string infile);
     void init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
 
+    void setPartitioners(const unsigned nthreads);
     void setRefiners(const unsigned refiners);
     void writeInit();
     void writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hidegree);
@@ -67,7 +69,8 @@ class GraphParts
 
   private:
     // Variables
-    std::string inputFileName;
+    //std::string inputFileName;
+    std::string inputFolder;
     std::string inType;
     size_t bytesPerFile;
     size_t linesPerThread;

@@ -230,12 +230,12 @@ void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned
   if (outBufMap[buffer].size() >= batchSize) {
 
     infinimem_write_times[tid] -= getTimer();     
-//    pthread_mutex_lock(&locks[bufferId]);
+    pthread_mutex_lock(&locks[bufferId]);
 //    fprintf(stderr,"\nTID %d outbufmap buffer %d full with %d records noItems:%d\n", tid, buffer, outBufMap[buffer].size(), nItems[buffer]);
    
     writeToInfinimem(bufferId, totalKeysInFile[bufferId], outBufMap[buffer].size(), outBufMap[buffer]);
     totalKeysInFile[bufferId] += nItems[buffer];
-  //  pthread_mutex_unlock(&locks[bufferId]);
+    pthread_mutex_unlock(&locks[bufferId]);
     infinimem_write_times[tid] += getTimer();
 
     outBufMap[buffer].clear();

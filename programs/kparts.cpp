@@ -29,7 +29,7 @@ class KParts : public GraphParts
   public:
 
   //  void* readEdgeLists(const unsigned tid, graph_t origG, RecordType* edgeLists, const std::string& input)
-  void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned lineId, const unsigned hiDegree) 
+  void* createMParts(const unsigned tid, const std::string& input, const std::string& type, const unsigned fileId, const unsigned hiDegree) 
   {
     std::stringstream inputStream(input);
     std::vector<unsigned> from;
@@ -75,18 +75,19 @@ class KParts : public GraphParts
 */
     //   if (type == "adj") {
     else {
+      inputStream >> to;
       while(inputStream >> token){
         from.push_back(token);
       }
       for(unsigned i = 0; i < from.size(); ++i){
-        //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
+//                fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", to, from[i], from.size());
         if(from.size() < hiDegree){
-        // fprintf(stderr,"\nVID: %d GOING to writebuf");
-          writeBuf(tid, lineId, from[i], hid);
+  //      fprintf(stderr,"\nVID: %d GOING to writebuf");
+          writeBuf(tid, to, from[i], hid);
         }
         else{
           hid = from.size();
-          writeBuf(tid, lineId, from[i], hid);
+          writeBuf(tid, to, from[i], hid);
         }
       }
     }
@@ -136,13 +137,14 @@ class KParts : public GraphParts
     KParts kp;
     if (argc != 10)
     {
-      std::cout << "Usage: " << argv[0] << " <fileName> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <memsize> <kitems> <outputprefix>" << std::endl;
+      std::cout << "Usage: " << argv[0] << " <folderpath> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <memsize> <kitems> <outputprefix>" << std::endl;
       return 0;
     }
 
-    std::string fileName = "";
+   // std::string fileName = "";
     std::string fileType = "";
-    fileName = argv[1];
+    std::string folderpath = argv[1];
+   // fileName = argv[1];
     fileType = argv[2]; 
     IdType nvertices = atoi(argv[3]);
  //   IdType nedges = atoi(argv[4]);
@@ -166,7 +168,7 @@ class KParts : public GraphParts
 
     assert(memSize > 0);
 
-    kp.init(fileName, fileType, nvertices, hDegree, nthreads, nparts, memSize, kitems);
+    kp.init(folderpath, fileType, nvertices, hDegree, nthreads, nparts, memSize, kitems);
     fprintf(stderr,"\nCreating partitions ..");
     double runTime = -getTimer();
     kp.run(); 

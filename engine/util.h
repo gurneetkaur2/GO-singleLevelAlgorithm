@@ -43,9 +43,9 @@ IdType gk_log2(IdType);
 IdType isum(IdType n, IdType w, IdType ncon);
 void printCallStack();
 IdType getNumLines(std::string fileName);
-//void getListOfFiles(std::string directory, std::vector<std::string>* fileList);
-//void reduceFiles(const std::string& dir, std::vector<std::string>* fileList, uint32_t gb);
-//void printFileNames(const std::string& dir, std::vector<std::string>* fileList, uint32_t gb);
+void getListOfFiles(std::string directory, std::vector<std::string>* fileList);
+void reduceFiles(const std::string& dir, std::vector<std::string>* fileList, uint32_t gb);
+void printFileNames(const std::string& dir, std::vector<std::string>* fileList, uint32_t gb);
 unsigned stringHash(const std::string& str);
 
   // Computing the digits using this method with ::max() gives 20 characters
