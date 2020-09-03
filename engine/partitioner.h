@@ -173,7 +173,7 @@ class Partitioner
     unsigned hiDegree;
     unsigned batchSize;  
     unsigned kBItems;  
-    unsigned kAItems;  
+    //unsigned kAItems;  
     unsigned totalCuts; 
     //unsigned nRefiners; 
     unsigned nparts;  
