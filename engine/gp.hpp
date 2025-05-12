@@ -63,30 +63,26 @@ void* doMParts(void* arg)
     }
   }
 
-//  std::ifstream infile(mr->inputFileName.c_str()); 
-//  assert(infile.is_open());
-  //      time_mparts += getTimer();
-  //	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
-  //	time_mparts -= getTimer();
-//  infile.seekg(std::ios::beg); //need this for Tid = 0
-//  unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
-  //infile.seekg(tid*lineId, infile.beg);
-  // mr->end_read[tid] = (tid+1)*mr->linesPerThread + 1; //4, 7, 9
-//  mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
+ /* std::ifstream infile(mr->inputFileName.c_str()); 
+  assert(infile.is_open());
+        time_mparts += getTimer();
+  	fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
+//  	time_mparts -= getTimer();
+  infile.seekg(std::ios::beg); //need this for Tid = 0
+  unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
+  mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
   //      time_mparts += getTimer();
   //fprintf(stderr, "\nCreating memory partitions nVertices: %d, Partitions: %d\n", mr->nVertices, mr->nParts);
   //time_mparts -= getTimer();
 
-/*  std::string line;
+  std::string line;
   if(tid > 0){
-    //   infile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     infile.seekg(std::ios::beg);
     for(int i=0; i < lineId; ++i){  //remove -1 if starting from 0
       infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
     }
   }
- */ //     fprintf(stderr,"\n Type : %s \n", mr->inType.c_str());
- /* while(std::getline(infile, line, '\n')){
+  while(std::getline(infile, line, '\n')){
     //fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
     //          fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
     if( lineId < mr->nVertices && lineId <= mr->end_read[tid]){
@@ -95,15 +91,16 @@ void* doMParts(void* arg)
       mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
       time_mparts += getTimer();
       //         fprintf(stderr,"\nTID: %d returned ", tid);
-    }*/
-    /*      else if(mr->inType == "edgelist" && lineId <= mr->end_read[tid]){
+    }
+   */ // Not used 
+   /*      else if(mr->inType == "edgelist" && lineId <= mr->end_read[tid]){
 
             time_mparts -= getTimer();
             mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
             time_mparts += getTimer();
     //         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
     }*/
-  /*  else
+/*    else
       break;
   }*/
 
@@ -124,7 +121,10 @@ void* doMParts(void* arg)
     mr->partitioner.gCopy(tid);
   }
   time_mparts += getTimer();
-
+  
+ /* if(tid==0)  //single part no refine
+    mr->afterRefine(tid, mr->nVertices);
+*/
   mr->mparts_times[tid] = time_mparts;
   // fprintf(stderr,"\nAfter flushign residues");
 
@@ -143,11 +143,8 @@ void* doRefine(void* arg)
   GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
   Partitioner& partitioner = mr->partitioner;
 
-  //  fprintf(stderr, "\nDoRefine: Initializing read parameter\n");
   mr->readInit(tid);
   int k = 0;
-  // for(unsigned i = 0; i < mr->nParts; i++){
-  //	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
   for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
     unsigned hipart = tid;
     unsigned whereMax = *it; 
@@ -166,14 +163,9 @@ void* doRefine(void* arg)
     bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
     //time_refine += getTimer();
 
-    //    fprintf(stderr,"\n-- COMBINE TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
-    //	time_refine = -getTimer();
-    // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
     partitioner.bRefine(tid, hipart, whereMax, ret);
     if(ret == true) {
-      // fprintf(stderr,"\nTID %d going to write part ", tid);
       partitioner.writePartInfo(tid, hipart, whereMax);
-      // pthread_mutex_unlock(&locks[tid]);
     }
     pthread_barrier_wait(&(mr->barWriteInfo));
     partitioner.clearMemorystructures(tid);
@@ -260,27 +252,13 @@ void* doInMemoryRefine(void* arg) {
       continue;
     }
     bool ret = partitioner.checkPIDStarted(tid, hipart, whereMax);
-    //time_refine += getTimer();
-
-    //    fprintf(stderr,"\n-- InMemory TID: %d, hipart: %d whereMax: %d, ret: %d \n", tid, hipart, whereMax, ret);
-    //time_refine = -getTimer();
-    // fprintf(stderr,"\n PIDS: %d ", partitioner.pIdsCompleted[hipart][whereMax]);
     partitioner.inMemRefine(tid, hipart, whereMax, ret);
-    // fprintf(stderr,"\nTID %d back after inMem Refine ret: %d ", tid, ret);
-    //  pthread_barrier_wait(&(mr->barRefine));
     if(ret == true) {
-      //         fprintf(stderr,"\nTID %d going to write part ", tid);
       partitioner.writePartInfo(tid, hipart, whereMax);
-      // pthread_mutex_unlock(&locks[tid]);
     }
     pthread_barrier_wait(&(mr->barWriteInfo));
     partitioner.clearMemorystructures(tid);
     partitioner.pIdsCompleted[hipart][whereMax] = true;
-    //	time_refine += getTimer();
-    //      fprintf(stderr,"\nTID %d finished iter %d  in Memory", tid,++k);
-    //time_refine = -getTimer();
-    //if(tid ==0) partitioner.pIdStarted.clear();
-
   }
         
 	time_refine += getTimer();
@@ -299,18 +277,14 @@ void* doInMemoryRefine(void* arg) {
 	pthread_barrier_wait(&(mr->barClear));
     if(tid == 0)
 		   mr->partitioner.gCopy(tid);
-       //   partitioner.setTotalCuts(tid);
 	pthread_barrier_wait(&(mr->barRefine));
     if(tid == 0)
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
           mr->refineInit(tid);
-    // fprintf(stderr,"\nTID %d RefineMap size: %d Total Cuts: %d", tid, partitioner.refineMap[tid].size(), partitioner.countTotalPECut(tid));
-      //  partitioner.ComputeBECut(tid, partitioner.refineMap[tid]);
           partitioner.cread(tid);
 	  pthread_barrier_wait(&(mr->barRefine));
        if(tid == 0){
          partitioner.setTotalCuts(tid);
-        // time_refine += getTimer();
 
         fprintf(stderr,"\n\n Total EdgeCuts: %d\n", partitioner.countTotalPECut(tid));
 	//   time_refine = -getTimer();
@@ -371,7 +345,7 @@ void GraphParts::run()
   //  fprintf(stderr, "Running Coarseners\n");
   //  parallelExecute(doCoarsen, this, nCoarseners);
   //      fprintf(stderr,"\nGP.HPP before Running refiners");
-
+// cyclic partitioning -- NO refinement
   if(!partitioner.getWrittenToDisk()) {
     fprintf(stderr, "Running InMemoryRefiners\n");
     parallelExecute(doInMemoryRefine, this, nrefiners);
@@ -451,7 +425,7 @@ void GraphParts::partitionInputForParallelReads() {
 
 //--------------------------------------------
 void GraphParts::init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned mSize, const unsigned kItems) {
-
+  inputFileName = input;
   setInput(input); 
   getListOfFiles(inputFolder, &fileList);
   std::cout << "Input folder name: " << inputFolder << std::endl;
@@ -475,30 +449,6 @@ void GraphParts::init(const std::string input, const std::string type, const uns
   batchSize = wload + mSize % (nThreads * nparts) ;
   //batchSize = mSize; // / (nThreads * nparts);
   fprintf(stderr, "batch size: %zu\n", batchSize);
-  //  if(nparts <= 16 && batchSize >=5000){
-  //     nrefiners = nparts * 2;
-  /*   if(nVertices < 5000000){
-       if(nparts <= 2 && bSize < 16000)
-       nrefiners = nparts * 2;
-       else if (nparts >= 4 && bSize < 16000)
-       nrefiners = nparts * 2;
-       else
-       nrefiners = nparts;
-       }
-       else{
-  //if(nparts <= 2 && bSize < 16000)
-  //  nrefiners = nparts * 8;
-  if (nparts <= 4 )
-  nrefiners = nparts * 2;
-  else if (nparts <= 16 )
-  nrefiners = nparts * 2;
-  }*/
-  /*  }
-      else if(nparts <= 8 && batchSize < 5000){ // for smaller graphs upto 8 parts
-      nrefiners = nparts * 2;
-      }
-      else
-   */
   nrefiners = nparts;
   kBItems = kItems;
 

@@ -52,6 +52,7 @@ std::vector<double> infinimem_cwrite_times;
 
 void* combine(const unsigned& key, std::vector<unsigned>& to, const std::vector<unsigned>& from);
 
+__thread unsigned pid=0;
 
 class Partitioner
 {

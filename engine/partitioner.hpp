@@ -193,35 +193,32 @@ void Partitioner::writeInit() {
 void Partitioner::writeBuf(const unsigned tid, const unsigned to, const unsigned from, const unsigned hIdSize = 0){
     double timeWBF = -getTimer();
   // fprintf(stderr,"\nInside WriteBuf TID %d", tid);
-    unsigned bufferId = hashKey(to) % nCols;
+    unsigned bufferId = hashKey(to) % nCols; //hash
+//    unsigned bufferId = tid % nCols; //block cyclic
+   // unsigned bufferId = pid++ % nCols; //cyclic
     unsigned buffer = tid * nCols + bufferId; 
     unsigned part = tid % nCols; // % nCols;
-    unsigned loc = bufferId % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
+    //unsigned loc = bufferId % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
 
     if(hIdSize != 0){
       hIds.emplace(to, hIdSize); 
       // Put the records into different buffer randomly
       unsigned bufferId = hashKey(from) % nCols; 
+     // unsigned bufferId = (tid+1) % nCols; //block cyclic
       unsigned buffer = tid * nCols + bufferId; 
-      unsigned loc = bufferId % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
+     // unsigned loc = bufferId % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
       // less chances of adjlist vertices being on boundary if they are hashed to the partition which has similar vertices as key; hence less edgecuts 
    }
 
   // fprintf(stderr,"\nTID %d calculating where loc %d bufferId %d nparts %d ", tid, loc, bufferId, nparts);
     if(where[part].at(to) == -1){
-      if(nparts < 8 )
-        where[part].at(to) = loc;
-      else
         where[part].at(to) = bufferId;
     }
 
 //  unsigned buffer = tid * nCols + bufferId;  
     unsigned whereFrom = hashKey(from) % nCols; 
-    unsigned whereloc = whereFrom % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
+   // unsigned whereloc = whereFrom % nparts;  // to make extra buffers for nparts < 10 map to the actual buffers
     if(where[part].at(from) == -1){
-      if(nparts < 8 )
-        where[part].at(from) = whereloc;
-      else
       where[part].at(from) = whereFrom;
   }
 
@@ -696,6 +693,7 @@ void Partitioner::gCopy(const unsigned tid){
 void Partitioner::gCopy(const unsigned tid, std::vector<unsigned>& gWhere){
       bool first = 1;
       for(unsigned i=0; i<nCols; ++i){
+     // fprintf(stderr,"\nTID: %d gWHere size: %d i: %d ", tid, gWhere.size(), i);
          for(unsigned j=0; j<=nVtces; ++j){
              if(first){  // All Values of first thread will be copied
 //         fprintf(stderr,"\nwhere[%d][%d]: %d,", i, j, where[i][j]);
@@ -1322,16 +1320,18 @@ void Partitioner::printParts(const unsigned tid, std::string fileName) {
 //       std::cout<<std::endl<<"Partition "<< tid <<std::endl;
 //  std::string outputPrefix = "testing";
   ofile.open(fileName);
+   //std::cout<<"\nFIlename: "<< fileName <<std::endl;
   assert(ofile.is_open());
-//   std::cout<<"\nFIlename: "<< fileName <<std::endl;
   // stime = 0.0;
 //  ofile<<"Batch Size - " << batchSize <<"\t KItems - "<<kBItems<<std::endl;
   for(unsigned i = 0; i <= nVtces; ++i){
+    // if(gWhere[i] != -1 ){ // single part --&& (gWhere[i] == tid || gWhere[i] == tid % nparts)){
      if(gWhere[i] != -1 && (gWhere[i] == tid || gWhere[i] == tid % nparts)){
      //if(where[tid][i] != -1){// && where[tid][i] == tid){
  //      std::cout<<"\t"<<i << "\t" << gWhere[i]<< std::endl;
    //    stime -= getTimer();
        ofile<<i << "\t" << gWhere[i]<< std::endl;
+     //  ofile<< gWhere[i]<< std::endl;
      //  stime += getTimer();
      }
    //  else

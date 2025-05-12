@@ -69,7 +69,7 @@ class GraphParts
 
   private:
     // Variables
-    //std::string inputFileName;
+    std::string inputFileName;
     std::string inputFolder;
     std::string inType;
     size_t bytesPerFile;
