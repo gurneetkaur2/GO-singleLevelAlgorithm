@@ -1,27 +1,23 @@
 TARGET      := kparts.bin
-#TARGET_ONE  := wordcount-one.bin
 CPP         := g++
 CC          := gcc
 CFLAGS      := -w -MMD -std=c++11 
-#CFLAGS      := -Wall -MMD
-LIBS        := -lm -lpthread -ltcmalloc -lstdc++ #-Wl,-rpath=/home/gkaur007/opt
+LIBS        := -lm -lpthread -ltcmalloc -lstdc++
 LIBPATH     := ../engine
-LDLIBS      := #-L/home/gkaur007/opt/ -L/home/gkaur007/opt/lib/ -Wl,-R/home/gkaur007/opt/lib/
+LDLIBS      := #
 
 PROTOC      := protoc
-PROTO_FLAGS := #-L /home/gkaur007/opt/lib
+PROTO_FLAGS := #
 PROTO_LIBS  := -lprotobuf 
 
 RM          := rm -rf
 OBJS        := recordtype.pb.o $(LIBPATH)/util.o kparts.o
-#OBJS_ONE    := $(LIBPATH)/util.o main-one.o
 
 OPTS        := #from command line (eg: OPTS+=...)
 
 -include    $(OBJS:%.o=%.d)
 
 all: CFLAGS += -O3
-#all: $(TARGET) $(TARGET_ONE)
 all: $(TARGET) 
 
 debug: CFLAGS += -DDEBUG -g3
@@ -30,8 +26,6 @@ debug: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(OPTS) $^ $(LDLIBS) $(LIBS) $(PROTO_LIBS) $(INC) -o $@
 
-#$(TARGET_ONE): $(OBJS_ONE)
-#	$(CC) $(CFLAGS) $(OPTS) $^ $(LDLIBS) $(LIBS) $(PROTO_LIBS) $(INC) -DUSE_ONE_PHASE_IO -o $@
 
 %.pb.cc: %.proto
 	$(PROTOC) -I=. --cpp_out=. $<
@@ -45,8 +39,6 @@ $(TARGET): $(OBJS)
 %.o: %.cpp
 	$(CC) $(CFLAGS) $(OPTS) -c $< -o $@
 
-#main-one.o: main.cpp
-#	$(CC) $(CFLAGS) $(OPTS) -c $< -DUSE_ONE_PHASE_IO -o $@
 
 clean:
 	$(RM) $(LIBPATH)/*.o *.o $(LIBPATH)/*.d *.d $(TARGET) *.pb.*

@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-//#include "./metis/include/metis.h"
 
 #define BASE_PATH "../inputs/"
 #define PARTS_PATH "parts_"
@@ -103,22 +102,12 @@ int main(int argc, char* argv[])
      unsigned long long v;
   
      // READ part file and match *******
-  //   part[p] = 0;
-    // ++p;
    while (partFile >> v){
-    // if(p >= num_vertices) break;
     //  cout <<"\n part " << v << " p " << p << endl;
        part[p] = v;
       ++p;
    }
    partFile.close();
-     /*
-    while (p <= num_vertices) {
-       partInFile >> v;
-      cout <<"\n part " << v << " p " << p << endl;
-         part[p] = v;
-      p++;
-    }*/
   for(idx_t src=0; src < nparts; ++src)
   {
   //  cout << "\n src: " << src << endl;
@@ -159,12 +148,10 @@ int main(int argc, char* argv[])
   transformedGraphFile.open(transPath.c_str());
   for(unsigned long long i=1; i<num_vertices; ++i)
   {
- // cout <<"\nGoing to for loop " << "\n";
     set<unsigned long long>::iterator it = ogEdgeLists[newVertexToVertex[i]].edges.begin();
     while(it != ogEdgeLists[newVertexToVertex[i]].edges.end())
     {
       transformedGraphFile << i << " " << *it << endl;
-   //   cout <<"\n" << i << " " << *it << endl;
       ++it; 
     }
   }

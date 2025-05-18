@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-//#include "metis.h"
 
 #define BASE_PATH "../inputs/"
 #define PARTS_PATH "parts_"
@@ -16,8 +15,6 @@
 
 using namespace std;
 typedef int64_t idx_t;
-//typedef int32_t idx_t;
-//typedef float real_t;
 
 typedef struct edgeList
 {
@@ -31,7 +28,6 @@ int main(int argc, char* argv[])
   string transformedGraphName = graphName + ".newGraph";
   string adjGraphName = "adj_" + graphName;
   string boundariesName = graphName + ".boundaries";
-  // string commName = graphName + ".comm";
   string sourceName = graphName + ".src";
   idx_t nparts = atoi(argv[2]);
 
@@ -41,7 +37,6 @@ int main(int argc, char* argv[])
   partsDir += "/";
 
   string partFName = argv[3];
- // cout<<"\nParts Dir: "<<partsDir;
   unsigned long long num_edges = 0, num_vertices = 0;
   {
     unsigned long long to, from, edge;
@@ -50,34 +45,24 @@ int main(int argc, char* argv[])
     infile >> to >> from;
     num_vertices = to;
     num_edges = from;
- //   cout<<"\nADJGRAPH FILE: "<<adjGraphName;
- //   cout<<"\nNUM Vertices: "<<num_vertices <<" NUM EDGES: " << num_edges;
   }
 ++num_vertices;
-//  EdgeList* edgeLists = new EdgeList[num_vertices];
   EdgeList* ogEdgeLists = new EdgeList[num_vertices];
-   // cout<<"\nVertices: "<<num_vertices;
 
   string graphPath = BASE_PATH + graphName;
-
-   // cout<<"\nGRAPH PATH: "<<graphPath;
 
   std::ifstream infile(graphPath.c_str());
   unsigned long long to, from;
 
   while (infile >> to >> from ) {
     ogEdgeLists[to].edges.insert(from);
-  //  cout<<"\nTO: "<<to <<" FROM: " << from;
   }
 
   idx_t nvtxs = num_vertices;
   idx_t* part = new idx_t[nvtxs];
   part[0] = 256;
- //   unsigned long long to;
     string partsPath = BASE_PATH + partsDir + partFName;
   cout<<"\nParts Dir: "<<partsPath;
- //   std::ifstream infile(partsPath.c_str());
-  //  infile >> to;
 
   unsigned long long* vertexToNewVertex = new unsigned long long[num_vertices];
   unsigned long long* newVertexToVertex = new unsigned long long[num_vertices];
@@ -149,6 +134,5 @@ int main(int argc, char* argv[])
   delete[] vertexToNewVertex;
   delete[] newVertexToVertex;
   delete[] part_boundaries;
-//  delete[] edgeLists;
   delete[] ogEdgeLists;
 }
