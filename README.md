@@ -17,12 +17,12 @@ To partition a graph with mt-Metis into 16 parts:
     go <graphfolderpath> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <batchsize> <outputprefix>
     go  graph adjlist 32767 10000 32 32 0 test   
 
-<filetype> - adjlist or edgelist
-<graphfolderpath> - path for the input graph files.
-<hDegree> - enter the maximum size for the adjacency list for the irregular graph. For regular graphs, enter zero.
-<nparts> - number of graph parititions to be produced. Should be 2 or greater.
-<batchsize> - this parameter gives you ability to limit the memory size used by algorith by specifying a smaller batchsize. 
-              Enter zero for default option.
+filetype - adjlist or edgelist.  
+graphfolderpath - path for the input graph files.  
+hDegree - enter the maximum size for the adjacency list for the irregular graph. For regular graphs, enter zero.  
+nparts - number of graph parititions to be produced. Should be 2 or greater.  
+batchsize - this parameter gives you ability to limit the memory size used by algorith by specifying a smaller batchsize.
+              Enter zero for default option. 
 
 Script to split the input graph into multiple files is located under programs/scripts directory.  
 
