@@ -1,4 +1,3 @@
-# {#mainpage}
 
 GO : Out of Core Graph Partitioning for large irregular graphs
 =============================
