@@ -6,9 +6,9 @@
 
 #include <vector>
 #include <set>
-#include <ctype.h> // for tolower()
-#include <algorithm> // for std::sort()
-#include <stack> // for lookuptable
+#include <ctype.h>
+#include <algorithm>
+#include <stack> 
 #include <fstream> 
 #include<iostream> 
 #include<iterator> 
@@ -37,15 +37,12 @@ void Partitioner::initg(unsigned nVertices, unsigned hDegree, unsigned nThreads,
 	readNext = new IdType[nCols];
 	nItems = new IdType[nRows * nCols];
 	where = new std::vector<unsigned>[nCols];
-	//  partitionBndInd = new std::vector<unsigned>[nCols];
-	//  partitionBndPtr = new std::vector<unsigned>[nCols];
 
 	outBufMap = new InMemoryContainer[nRows * nCols];
 	readBufMap = new InMemoryContainer[nCols];
 	refineMap = new InMemoryContainer[nCols];
 	bndIndMap = new LookUpTable[nCols];
 	lookUpTable = new LookUpTable[nCols];
-	//  gainTable = new InMemTable[nCols];
 	dTable = new InMemTable[nCols];
 	fetchBatchIds = new std::set<unsigned>[nCols];
 	fetchPIds = new std::set<unsigned>[nCols];
@@ -87,11 +84,7 @@ void Partitioner::releaseInMemStructures()
 		outBufMap[i].clear();
 
 	delete[] nItems;
-	//  delete[] nCuts;
-	//  delete[] nEdges;
 	delete[] outBufMap;
-	//  delete[] bndind;
-	//  delete[] bndptr;
 }
 //-------------------------------------------------
 void Partitioner::shutdown()

@@ -54,19 +54,6 @@ class KParts : public GraphParts
       writeBuf(tid, to, token, hid);
     }
 
-/*    if (type == "edge"){
-      for(unsigned i = 0; i < from.size(); ++i){
-        //        fprintf(stderr,"\nVID: %d FROM: %zu size: %zu", lineId, from[i], from.size());
-        if(from.size() < hiDegree){
-          writeBuf(tid, to, token, hid);
-        }
-        else{
-          hid = from.size();
-          writeBuf(tid, to, token, hid);
-        }
-      }
-    }
-*/
     // Adjacency list format
     else {
       inputStream >> to;
@@ -92,11 +79,6 @@ class KParts : public GraphParts
     return NULL;
   }
   void* refine(const unsigned tid, const unsigned& rank, const std::vector<unsigned>& nbrs) {
-    //	uint64_t total = std::accumulate(nbrs.begin(), nbrs.end(), 0);
-    //        stime -= getTimer();
-    //  	ofile << rank << " " << total << std::endl;
-    //   	ofile << rank << std::endl;
-    //   	stime += getTimer();     
     return NULL;
   }
 
@@ -126,9 +108,9 @@ class KParts : public GraphParts
   int main(int argc, char** argv)
   {
     KParts kp;
-    if (argc != 10)
+    if (argc != 9)
     {
-      std::cout << "Usage: " << argv[0] << " <folderpath> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <memsize> <kitems> <outputprefix>" << std::endl;
+      std::cout << "Usage: " << argv[0] << " <folderpath> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <batchsize> <outputprefix>" << std::endl;
       return 0;
     }
 
@@ -138,19 +120,30 @@ class KParts : public GraphParts
     IdType nvertices = atoi(argv[3]);
     unsigned nthreads = atoi(argv[5]);
     unsigned memSize = atoi(argv[7]);
-    unsigned kitems = atoi(argv[8]);
+    unsigned kitems = 20;
     unsigned nparts = atoi(argv[6]);
     unsigned hDegree = atoi(argv[4]);
-    outputPrefix = argv[9];
+    outputPrefix = argv[8];
 
     if(fileType != "edgelist" && fileType != "adjlist" ){
       fprintf(stderr, "\nFile Type %s not accepted, please select edgelist or adjlist format \n", fileType.c_str());
       return 0;
     }
+    
+    if(nparts < 2){
+      fprintf(stderr, "\n Number of graph partitions cannot be less than 2 \n")
+      return 0;
+      }
 
     fprintf(stderr, "total partitions: %zu\n", nparts);
+    
+    if(hDegree < 1000)
+       hDegree = 1000;
 
-    assert(memSize > 0);
+    if(memsize <= 0)
+       memsize = nVertices;
+
+    //assert(memSize > 0);
 
     kp.init(folderpath, fileType, nvertices, hDegree, nthreads, nparts, memSize, kitems);
     fprintf(stderr,"\nCreating partitions ..");

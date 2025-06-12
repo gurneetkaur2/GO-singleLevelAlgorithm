@@ -1,4 +1,4 @@
-TARGET      := kparts.bin
+TARGET      := go
 CPP         := g++
 CC          := gcc
 CFLAGS      := -w -MMD -std=c++11 

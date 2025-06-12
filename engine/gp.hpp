@@ -190,11 +190,6 @@ void* doRefine(void* arg)
 	time_refine += getTimer();
 	mr->refine_times[tid] += time_refine;
 
-	//	pthread_barrier_wait(&(mr->barRefine));
-	/*if(tid == 0){
-	  partitioner.setTotalCuts(tid);
-	  fprintf(stderr,"\n\n Total EdgeCuts BEFORE: %d\n", partitioner.countTotalPECut(tid));
-	  }*/
 	pthread_barrier_wait(&(mr->barClear));
 	if(tid == 0)
 		mr->partitioner.gCopy(tid);
@@ -210,7 +205,7 @@ void* doRefine(void* arg)
 	}
 
 	//	time_refine += getTimer();
-	//fprintf(stderr, "\nthread %u finished Refining\n", tid);
+	fprintf(stderr, "\nthread %u finished Refining\n", tid);
 	//time_refine = -getTimer();
 	return NULL;
 }
@@ -229,10 +224,7 @@ void* doInMemoryRefine(void* arg) {
 	pthread_barrier_wait(&(mr->barRefine));
 	if(tid == 0)  //Need this condition when used in multi thread envt.
 		partitioner.releaseInMemStructures();
-	//time_refine += getTimer();
-	//	  mr->refineInit(tid);
 	partitioner.setTotalCuts(tid);
-	//time_refine = -getTimer();
 	mr->refineInit(tid);
 	int k = 0; 
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
@@ -319,16 +311,6 @@ void GraphParts::run()
 	infinimem_write_times.resize(nThreads, 0.0);
 	infinimem_cread_times.resize(nrefiners, 0.0);
 	infinimem_cwrite_times.resize(nrefiners, 0.0);
-	/*    }
-	      else{
-	      refine_times.resize(nParts, 0.0);
-	      writeBuf_times.resize(nThreads, 0.0);
-	      flushResidues_times.resize(nThreads, 0.0);
-	      infinimem_read_times.resize(nParts, 0.0);
-	      infinimem_write_times.resize(nThreads, 0.0);
-	      infinimem_cread_times.resize(nParts, 0.0);
-	      infinimem_cwrite_times.resize(nParts, 0.0);
-	      }*/
 	localCombinedPairs.resize(nThreads, uint64_t(0));
 
 	init_time += getTimer();
@@ -338,9 +320,6 @@ void GraphParts::run()
 	parallelExecute(doMParts, this, nThreads);
 	fprintf(stderr,"\nSuccessfully Uploaded the Graph\n");
 
-	//  fprintf(stderr, "Running Coarseners\n");
-	//  parallelExecute(doCoarsen, this, nCoarseners);
-	//      fprintf(stderr,"\nGP.HPP before Running refiners");
 	// cyclic partitioning -- NO refinement
 	if(!partitioner.getWrittenToDisk()) {
 		fprintf(stderr, "Running InMemoryRefiners\n");
@@ -352,8 +331,6 @@ void GraphParts::run()
 		parallelExecute(doRefine, this, nrefiners);
 
 		partitioner.releaseReadPartStructures();
-		//	fprintf(stderr, "\nRunning Refiners\n");
-		//	parallelExecute(doRefine, this, nParts);
 	}
 
 	fprintf(stderr, "Graph partitioned. Shutting down.\n");
@@ -431,7 +408,6 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 
 	//nInMemParts and nParts are same
 	nVertices = nvertices;
-	//	nEdges = nedges;
 	hDegree = hdegree;
 	inType = type;
 	nThreads = nthreads;
@@ -444,28 +420,14 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 
 	nParts = nparts;
 
-	// if(inType == "adj")
 	numLines = nVertices;
-
-	//  if(inType == "edge")
-	//     numLines = nEdges;
-
 
 	if (inType == "adjlist" && numLines != nVertices){
 		fprintf(stderr, "\nNo. of Vertices %d not correct numlines %d \n", nVertices, numLines);
 		assert(false);
 	}
 
-	/*        if (inType == "edge" && numLines != nEdges){
-		  fprintf(stderr, "\nNo. of Edges %d not correct\n", numLines);
-		  assert(false);
-		  }
-		  */
-	//setRefiners(std::min(nThreads, nParts));
-	//TODO:need to check if I need this --  nParts = std::min(nThreads, nParts);
-
 	std::cout << "nVertices: " << nVertices << std::endl;
-	//std::cout << "nEdges: " << nEdges << std::endl;
 	std::cout << "hDegree: " << hDegree << std::endl;
 	std::cout << "nThreads: " << nThreads << std::endl;
 	std::cout << "nParts: " << nParts << std::endl;
