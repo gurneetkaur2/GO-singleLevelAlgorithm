@@ -14,14 +14,15 @@ Compiling
 -----------------------------
 Following compilers/libraries are required:
 
-C++14 Compiler.
-[Protocol Buffers](https://protobuf.dev/)
+* C++14 Compiler.
+* [Protocol Buffers](https://protobuf.dev/)
 
-> apt-get install libprotobuf-dev protobuf-compiler libgoogle-perftools-dev
+    apt-get install libprotobuf-dev protobuf-compiler libgoogle-perftools-dev
+
 
 To compile, go to the programs directory and run:
 
-> make
+    make
 
 It will create a 'go' executable.
 
@@ -46,6 +47,25 @@ To partition a graph with go into 32 parts:
 
 
 Script to split the input graph into multiple files is located under programs/scripts directory.  
+
+
+
+Reference
+-----------------------------
+
+To cite GO, use the following BibTeX entry:
+
+   @INPROCEEDINGS{9605433,
+    author={Kaur, Gurneet and Gupta, Rajiv},
+    booktitle={2021 IEEE International Conference on Networking, Architecture and Storage (NAS)},
+    title={GO: Out-Of-Core Partitioning of Large Irregular Graphs},
+    year={2021},
+    volume={},
+    number={},
+    pages={1-10},
+    keywords={Runtime;Conferences;Memory management;Partitioning algorithms;irregular graphs;out-of-core processing;multilevel graph partitioning},
+    doi={10.1109/NAS51552.2021.9605433}}
+
 
 
 
