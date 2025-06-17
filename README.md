@@ -5,14 +5,32 @@ GO : Out of Core Graph Partitioning for large irregular graphs
 GO is a single level graph partitioner that can successfully partition large graphs on a single machine in a memory constrained manner.
 Instead of maintining multiple copies of the graph, GO performs just two passes over the entire input graph - partition creation pass that 
 creates balanced partitions and partition refinement pass that reduces edgecuts. Both passes function in a memory constrained manner via 
-disk-based processing. GO successfully partitions large graphs for which Mt-Metis runs out of memory.
+disk-based processing. GO successfully partitions large graphs for which Mt-Metis runs out of memory. GO algorithm details and results
+can be found in the [paper](https://www.cs.ucr.edu/~gupta/research/Publications/Comp/NAS2021.pdf).
+
+
+
+Compiling 
+-----------------------------
+Following compilers/libraries are required:
+
+C++14 Compiler.
+[Protocol Buffers](https://protobuf.dev/)
+
+> apt-get install libprotobuf-dev protobuf-compiler libgoogle-perftools-dev
+
+To compile, go to the programs directory and run:
+
+> make
+
+It will create a 'go' executable.
 
 
 
 The 'go' Executable
 -----------------------------
 
-To partition a graph with mt-Metis into 16 parts:
+To partition a graph with go into 32 parts:
 
     go <graphfolderpath> <fileType> <nvertices> <hDegree> <nthreads> <nparts> <batchsize> <outputprefix>
     go  graph adjlist 32767 10000 32 32 0 test   
