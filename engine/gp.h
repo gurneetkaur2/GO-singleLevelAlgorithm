@@ -11,6 +11,7 @@ void* doCoarsen(void* arg);
 
 //void* doInMemoryRefine(void* arg);
 //EdgeList* edgeLists = NULL;
+typedef std::vector<unsigned>* InMemoryList; 
 
 class GraphParts
 {
@@ -24,6 +25,7 @@ class GraphParts
     virtual void run();
     void setInput(const std::string infile);
     void init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
+    void GO_KParts(const unsigned xadj, const unsigned adjacency, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned memSize);
 
     void setPartitioners(const unsigned nthreads);
     void setRefiners(const unsigned refiners);
@@ -38,6 +40,7 @@ class GraphParts
     void ComputeBECut(const unsigned tid, const InMemoryContainer& inMemMap);
     void cWrite(const unsigned tid, unsigned noItems, InMemoryConstIterator end);
     unsigned countTotalPECut(const unsigned tid);
+    bool isUsingAPI() { return usingAPI; }
 
     // Variables. Ideally, make these private and provide getters/setters.
     unsigned nVertices;
@@ -64,6 +67,7 @@ class GraphParts
     pthread_barrier_t barClear;
 
     friend void* doMParts(void* arg);
+    friend void* doGParts(void* arg);
     friend void* doRefine(void* arg);
     friend void* doInMemoryRefine(void* arg);
 
@@ -74,7 +78,11 @@ class GraphParts
     std::string inType;
     size_t bytesPerFile;
     size_t linesPerThread;
+    std::bool usingAPI;
     Partitioner partitioner;
+    
+    InMemoryList cXAdj;
+    InMemoryList cAdjacency;
 
     //Methods
     void partitionInputForParallelReads();

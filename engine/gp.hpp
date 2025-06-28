@@ -132,6 +132,70 @@ void* doMParts(void* arg)
 
 
 //---------------------------------------------
+// Coarsening driver - API
+void* doGParts(void* arg)
+{
+	double time_mparts = 0.0;
+	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
+	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
+	Partitioner& partitioner = mr->partitioner;
+	//	fprintf(stderr, "\n DoMparts tid %d  ", tid);  //GK
+
+	//  mr->writeInit(rand() % mr->nParts);
+	//	fprintf(stderr, "\n After writeinit tid %d  ", tid);  //GK
+	static std::atomic<unsigned> nextFileId(0);
+	unsigned fileId = tid;
+	while((nextFileId++) < mr->fileList.size()) {
+		std::string fname = mr->inputFolder + "/" + mr->fileList.at(fileId);
+		// if(fileId % 1000 == 0) fprintf(stderr, "thread %u working on file %d which is %s\n", tid, fileId, fname.c_str());
+		std::ifstream infile(fname.c_str());
+		ASSERT_WITH_MESSAGE(infile.is_open(), fname.c_str());
+		std::string line;
+		while(std::getline(infile, line)) {
+			time_mparts -= getTimer();
+			mr->createMParts(tid, line, mr->inType, fileId, mr->hDegree); //mr->map(tid, fileId, line);
+			time_mparts += getTimer();
+		}
+	}
+
+	
+        // Convert from CSR to adjlist format and set up in memory buffers
+        // Iterate through each vertex (row) in the CSR
+	for (unsigned i = 0; i < nVertices; ++i) {
+	// Iterate through the non-zero elements for the current vertex (row)
+          for (unsigned j = xadj[i]; j < xadj[i + 1]; ++j) {
+	     partitioner.writebuf(tid, i, adjacency[j], hDegree);
+	  }
+	}
+
+	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
+	fprintf(stderr, "thread %u waiting for others to finish work \n", tid);
+	//copy the local partition to global 
+
+	time_mparts -= getTimer();
+	pthread_barrier_wait(&(mr->barMParts));
+
+	//  mr->partitioner.gCopy(tid);
+
+	if(partitioner.getWrittenToDisk())
+		mr->partitioner.flushBResidues(tid);
+
+
+	if (tid == 0) {
+		mr->partitioner.gCopy(tid);
+	}
+	time_mparts += getTimer();
+
+	/* if(tid==0)  //single part no refine
+	   mr->afterRefine(tid, mr->nVertices);
+	   */
+	mr->mparts_times[tid] = time_mparts;
+	// fprintf(stderr,"\nAfter flushign residues");
+
+	return NULL;
+}
+
+//---------------------------------------------
 // Refine driver
 void* doRefine(void* arg)
 {
@@ -302,7 +366,6 @@ void GraphParts::run()
 
 	end_read.resize(nThreads, 0);
 	mparts_times.resize(nThreads, 0.0);
-	// if(nParts < 10){
 	refine_times.resize(nrefiners, 0.0);
 	aftr_refine_times.resize(nrefiners, 0.0);
 	writeBuf_times.resize(nThreads, 0.0);
@@ -317,7 +380,13 @@ void GraphParts::run()
 
 	fprintf(stderr, "Reading Graph from file\n");
 	partitioner.writeInit();
-	parallelExecute(doMParts, this, nThreads);
+	
+	// If using API then execute Gparts
+	if (isUsingAPI()) {
+	   parallelExecute(doGParts, this, nThreads);
+	else
+	   parallelExecute(doMParts, this, nThreads);
+
 	fprintf(stderr,"\nSuccessfully Uploaded the Graph\n");
 
 	// cyclic partitioning -- NO refinement
@@ -411,6 +480,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	hDegree = hdegree;
 	inType = type;
 	nThreads = nthreads;
+        usingAPI = false;
 
 	unsigned wload = mSize / (nThreads * nparts);
 	batchSize = wload + mSize % (nThreads * nparts) ;
@@ -440,6 +510,46 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	pthread_barrier_init(&barWriteInfo, NULL, nrefiners);
 	pthread_barrier_init(&barClear, NULL, nrefiners);
 	pthread_barrier_init(&barAfterRefine, NULL, nrefiners);
+}
+
+void GraphParts::GO_KParts(const unsigned xadj, const unsigned adjacency, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned memSize)
+{
+	setPartitioners(std::min(nthreads, 2));
+
+	//nInMemParts and nParts are same
+	nVertices = nvertices;
+	hDegree = (hdegree < 1000) ? 1000 : hdegree;
+	inType = type;
+	nThreads = nthreads;
+	nparts = std::min(nparts, 2);
+
+	unsigned wload = memSize / (nThreads * nparts);
+	batchSize = wload + memSize % (nThreads * nparts) ;
+	fprintf(stderr, "batch size: %zu\n", batchSize);
+	nrefiners = nparts;
+	kBItems = 20;
+        usingAPI = true;
+
+	nParts = nparts;
+	cXAdj = xadj;
+	cAdjacency = adjacency;
+
+	/*std::cout << "nVertices: " << nVertices << std::endl;
+	std::cout << "hDegree: " << hDegree << std::endl;
+	std::cout << "nThreads: " << nThreads << std::endl;
+	std::cout << "nParts: " << nParts << std::endl;
+	std::cout << "batchSize: " << batchSize << std::endl;
+	std::cout << "topk: " << kBItems << std::endl;
+        */
+
+        // Initialize thread barrier
+	pthread_barrier_init(&barMParts, NULL, nThreads);
+	pthread_barrier_init(&barRead, NULL, nrefiners);
+	pthread_barrier_init(&barRefine, NULL, nrefiners);
+	pthread_barrier_init(&barWriteInfo, NULL, nrefiners);
+	pthread_barrier_init(&barClear, NULL, nrefiners);
+	pthread_barrier_init(&barAfterRefine, NULL, nrefiners);
+
 }
 
 void GraphParts::setInput(const std::string input)
