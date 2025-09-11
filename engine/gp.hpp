@@ -62,46 +62,6 @@ void* doMParts(void* arg)
 		}
 	}
 
-	/* std::ifstream infile(mr->inputFileName.c_str()); 
-	   assert(infile.is_open());
-	   time_mparts += getTimer();
-	   fprintf(stderr,"\n Input file: %s\n",mr->inputFileName.c_str());
-	//  	time_mparts -= getTimer();
-	infile.seekg(std::ios::beg); //need this for Tid = 0
-	unsigned lineId = tid*mr->linesPerThread + tid;//0, 4, 8
-	mr->end_read[tid] = (tid+1)*mr->linesPerThread + tid; //4, 7, 9
-	//      time_mparts += getTimer();
-	//fprintf(stderr, "\nCreating memory partitions nVertices: %d, Partitions: %d\n", mr->nVertices, mr->nParts);
-	//time_mparts -= getTimer();
-
-	std::string line;
-	if(tid > 0){
-	infile.seekg(std::ios::beg);
-	for(int i=0; i < lineId; ++i){  //remove -1 if starting from 0
-	infile.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
-	}
-	}
-	while(std::getline(infile, line, '\n')){
-	//fprintf(stderr,"\nTID: %d, lineID %d THREADCT %d\n", tid, lineId, threadCt);
-	//          fprintf(stderr,"\n ********** TID: %d, lineID %d, end_read: %d Type: %s \n", tid, lineId+1, mr->end_read[tid], mr->inType.c_str());
-	if( lineId < mr->nVertices && lineId <= mr->end_read[tid]){
-
-	time_mparts -= getTimer();
-	mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
-	time_mparts += getTimer();
-	//         fprintf(stderr,"\nTID: %d returned ", tid);
-	}
-	*/ // Not used 
-	/*      else if(mr->inType == "edgelist" && lineId <= mr->end_read[tid]){
-
-		time_mparts -= getTimer();
-		mr->createMParts(tid, line, mr->inType, ++lineId, mr->hDegree);     
-		time_mparts += getTimer();
-	//         fprintf(stderr,"\nTID: %d THreadCT %d ", tid, threadCt);
-	}*/
-	/*    else
-	      break;
-	      }*/
 
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
 	fprintf(stderr, "thread %u waiting for others to finish work \n", tid);
@@ -139,35 +99,25 @@ void* doGParts(void* arg)
 	unsigned tid = static_cast<unsigned>(static_cast<std::pair<unsigned, void*>*>(arg)->first);
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
-	//	fprintf(stderr, "\n DoMparts tid %d  ", tid);  //GK
-
-	//  mr->writeInit(rand() % mr->nParts);
-	//	fprintf(stderr, "\n After writeinit tid %d  ", tid);  //GK
-	static std::atomic<unsigned> nextFileId(0);
-	unsigned fileId = tid;
-	while((nextFileId++) < mr->fileList.size()) {
-		std::string fname = mr->inputFolder + "/" + mr->fileList.at(fileId);
-		// if(fileId % 1000 == 0) fprintf(stderr, "thread %u working on file %d which is %s\n", tid, fileId, fname.c_str());
-		std::ifstream infile(fname.c_str());
-		ASSERT_WITH_MESSAGE(infile.is_open(), fname.c_str());
-		std::string line;
-		while(std::getline(infile, line)) {
-			time_mparts -= getTimer();
-			mr->createMParts(tid, line, mr->inType, fileId, mr->hDegree); //mr->map(tid, fileId, line);
-			time_mparts += getTimer();
-		}
-	}
+	//	fprintf(stderr, "\n DoGparts tid %d  ", tid);  //GK
 
 	
         // Convert from CSR to adjlist format and set up in memory buffers
         // Iterate through each vertex (row) in the CSR
-	for (unsigned i = 0; i < nVertices; ++i) {
-	// Iterate through the non-zero elements for the current vertex (row)
-          for (unsigned j = xadj[i]; j < xadj[i + 1]; ++j) {
-	     partitioner.writebuf(tid, i, adjacency[j], hDegree);
-	  }
-	}
+        
+	// Calculate thread-specific range
+	unsigned start_i = (nVertices * tid) / nThreads;
+	unsigned end_i = (nVertices * (tid + 1)) / nThreads;
 
+          // Process only assigned rows
+	  for (unsigned i = start_i; i < end_i; ++i) {
+            for (unsigned j = cXAdj[i]; j < cXAdj[i + 1]; ++j) {
+	       time_mparts -= getTimer();
+	       partitioner.writebuf(tid, i, cAdjacency[j], hDegree);
+	       time_mparts += getTimer();
+	    }
+	  }
+	
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
 	fprintf(stderr, "thread %u waiting for others to finish work \n", tid);
 	//copy the local partition to global 
