@@ -119,7 +119,7 @@ class KParts : public GraphParts
     fileType = argv[2]; 
     IdType nvertices = atoi(argv[3]);
     unsigned nthreads = atoi(argv[5]);
-    unsigned memSize = atoi(argv[7]);
+    unsigned memsize = atoi(argv[7]);
     unsigned kitems = 20;
     unsigned nparts = atoi(argv[6]);
     unsigned hDegree = atoi(argv[4]);
@@ -131,7 +131,7 @@ class KParts : public GraphParts
     }
     
     if(nparts < 2){
-      fprintf(stderr, "\n Number of graph partitions cannot be less than 2 \n")
+      fprintf(stderr, "\n Number of graph partitions cannot be less than 2 \n");
       return 0;
       }
 
@@ -141,11 +141,11 @@ class KParts : public GraphParts
        hDegree = 1000;
 
     if(memsize <= 0)
-       memsize = nVertices;
+       memsize = nvertices;
 
     //assert(memSize > 0);
 
-    kp.init(folderpath, fileType, nvertices, hDegree, nthreads, nparts, memSize, kitems);
+    kp.init(folderpath, fileType, nvertices, hDegree, nthreads, nparts, memsize, kitems);
     fprintf(stderr,"\nCreating partitions ..");
     double runTime = -getTimer();
     kp.run(); 

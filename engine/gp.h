@@ -11,7 +11,7 @@ void* doCoarsen(void* arg);
 
 //void* doInMemoryRefine(void* arg);
 //EdgeList* edgeLists = NULL;
-typedef std::vector<unsigned>* InMemoryList; 
+typedef std::vector<unsigned> InMemoryList; 
 
 class GraphParts
 {
@@ -25,7 +25,7 @@ class GraphParts
     virtual void run();
     void setInput(const std::string infile);
     void init(const std::string input, const std::string type, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned bSize, const unsigned kItems);
-    void GO_KParts(const unsigned xadj, const unsigned adjacency, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned memSize);
+    void GO_KParts(const unsigned* xadj, const unsigned* adjacency, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned memSize);
 
     void setPartitioners(const unsigned nthreads);
     void setRefiners(const unsigned refiners);
@@ -52,6 +52,8 @@ class GraphParts
     unsigned nParts;
     unsigned nrefiners;
     IdType numLines;
+    InMemoryList cXAdj;
+    InMemoryList cAdjacency;
     std::vector<unsigned> end_read;
     std::vector<double> mparts_times;
     std::vector<double> refine_times;
@@ -78,11 +80,9 @@ class GraphParts
     std::string inType;
     size_t bytesPerFile;
     size_t linesPerThread;
-    std::bool usingAPI;
     Partitioner partitioner;
+    bool usingAPI;
     
-    InMemoryList cXAdj;
-    InMemoryList cAdjacency;
 
     //Methods
     void partitionInputForParallelReads();

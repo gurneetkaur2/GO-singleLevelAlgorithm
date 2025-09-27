@@ -101,23 +101,24 @@ void* doGParts(void* arg)
 	Partitioner& partitioner = mr->partitioner;
 	//	fprintf(stderr, "\n DoGparts tid %d  ", tid);  //GK
 
-	
-        // Convert from CSR to adjlist format and set up in memory buffers
-        // Iterate through each vertex (row) in the CSR
-        
-	// Calculate thread-specific range
-	unsigned start_i = (nVertices * tid) / nThreads;
-	unsigned end_i = (nVertices * (tid + 1)) / nThreads;
 
-          // Process only assigned rows
-	  for (unsigned i = start_i; i < end_i; ++i) {
-            for (unsigned j = cXAdj[i]; j < cXAdj[i + 1]; ++j) {
-	       time_mparts -= getTimer();
-	       partitioner.writebuf(tid, i, cAdjacency[j], hDegree);
-	       time_mparts += getTimer();
-	    }
-	  }
-	
+	// Convert from CSR to adjlist format and set up in memory buffers
+	// Iterate through each vertex (row) in the CSR
+
+	// Calculate thread-specific range
+	unsigned start_i = (mr->nVertices * tid) / mr->nThreads;
+	unsigned end_i = (mr->nVertices * (tid + 1)) / mr->nThreads;
+
+	// Process only assigned rows
+	for (unsigned i = start_i; i < end_i; ++i) {
+		// Iterate through the non-zero elements for the current vertex (row)
+		for (unsigned j = mr->cXAdj[i]; j < mr->cXAdj[i + 1]; ++j) {
+			time_mparts -= getTimer();
+			partitioner.writeBuf(tid, i, mr->cAdjacency[j], mr->hDegree);
+			time_mparts += getTimer();
+		}
+	}
+
 	//  fprintf(stderr, "Written to disk: %s \n", partitioner.getWrittenToDisk() );
 	fprintf(stderr, "thread %u waiting for others to finish work \n", tid);
 	//copy the local partition to global 
@@ -160,7 +161,7 @@ void* doRefine(void* arg)
 	int k = 0;
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
 		unsigned hipart = tid;
-		unsigned whereMax = *it; 
+		unsigned whereMax = *it;
 		if(whereMax == tid){
 			partitioner.pIdsCompleted[tid][*it] = true;
 			continue;
@@ -207,7 +208,7 @@ void* doRefine(void* arg)
 	pthread_barrier_wait(&(mr->barClear));
 	if(tid == 0)
 		mr->partitioner.gCopy(tid);
-	partitioner.readClear(tid); 
+	partitioner.readClear(tid);
 	partitioner.refineInit(tid);
 	partitioner.cread(tid);
 	pthread_barrier_wait(&(mr->barRefine));
@@ -234,16 +235,16 @@ void* doInMemoryRefine(void* arg) {
 	GraphParts *mr = static_cast<GraphParts *>(static_cast<std::pair<unsigned, void*>*>(arg)->second);
 	Partitioner& partitioner = mr->partitioner;
 
-	partitioner.initiateInMemoryRefine(tid); 
+	partitioner.initiateInMemoryRefine(tid);
 	pthread_barrier_wait(&(mr->barRefine));
 	if(tid == 0)  //Need this condition when used in multi thread envt.
 		partitioner.releaseInMemStructures();
 	partitioner.setTotalCuts(tid);
 	mr->refineInit(tid);
-	int k = 0; 
+	int k = 0;
 	for(auto it = partitioner.fetchPIds[tid].begin(); it != partitioner.fetchPIds[tid].end(); ++it) {
 		unsigned hipart = tid;
-		unsigned whereMax = *it; 
+		unsigned whereMax = *it;
 		if(whereMax == tid){
 			partitioner.pIdsCompleted[tid][*it] = true;
 			continue;
@@ -298,7 +299,6 @@ void* doInMemoryRefine(void* arg) {
 
 	return NULL;
 }
-
 //=============================================
 // Member Functions
 //+++++++++++++++++++++++++++++++++++++++++++++
@@ -330,12 +330,12 @@ void GraphParts::run()
 
 	fprintf(stderr, "Reading Graph from file\n");
 	partitioner.writeInit();
-	
+
 	// If using API then execute Gparts
-	if (isUsingAPI()) {
-	   parallelExecute(doGParts, this, nThreads);
+	if (isUsingAPI())
+		parallelExecute(doGParts, this, nThreads);
 	else
-	   parallelExecute(doMParts, this, nThreads);
+		parallelExecute(doMParts, this, nThreads);
 
 	fprintf(stderr,"\nSuccessfully Uploaded the Graph\n");
 
@@ -430,7 +430,7 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	hDegree = hdegree;
 	inType = type;
 	nThreads = nthreads;
-        usingAPI = false;
+	usingAPI = false;
 
 	unsigned wload = mSize / (nThreads * nparts);
 	batchSize = wload + mSize % (nThreads * nparts) ;
@@ -462,37 +462,36 @@ void GraphParts::init(const std::string input, const std::string type, const uns
 	pthread_barrier_init(&barAfterRefine, NULL, nrefiners);
 }
 
-void GraphParts::GO_KParts(const unsigned xadj, const unsigned adjacency, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned memSize)
+void GraphParts::GO_KParts(const unsigned* xadj, const unsigned* adjacency, const unsigned nvertices, const unsigned hdegree, const unsigned nthreads, const unsigned nparts, const unsigned memSize)
 {
-	setPartitioners(std::min(nthreads, 2));
+	setPartitioners(std::min<unsigned>(nthreads, 2));
 
 	//nInMemParts and nParts are same
 	nVertices = nvertices;
 	hDegree = (hdegree < 1000) ? 1000 : hdegree;
-	inType = type;
+	//	inType = type;
 	nThreads = nthreads;
-	nparts = std::min(nparts, 2);
 
 	unsigned wload = memSize / (nThreads * nparts);
 	batchSize = wload + memSize % (nThreads * nparts) ;
 	fprintf(stderr, "batch size: %zu\n", batchSize);
 	nrefiners = nparts;
 	kBItems = 20;
-        usingAPI = true;
+	usingAPI = true;
 
-	nParts = nparts;
-	cXAdj = xadj;
-	cAdjacency = adjacency;
+	nParts = std::min<unsigned>(nparts, 2);
+	cXAdj.assign(xadj, xadj + nVertices + 1);
+	cAdjacency.assign(adjacency, adjacency + nVertices + 1);
 
 	/*std::cout << "nVertices: " << nVertices << std::endl;
-	std::cout << "hDegree: " << hDegree << std::endl;
-	std::cout << "nThreads: " << nThreads << std::endl;
-	std::cout << "nParts: " << nParts << std::endl;
-	std::cout << "batchSize: " << batchSize << std::endl;
-	std::cout << "topk: " << kBItems << std::endl;
-        */
+	  std::cout << "hDegree: " << hDegree << std::endl;
+	  std::cout << "nThreads: " << nThreads << std::endl;
+	  std::cout << "nParts: " << nParts << std::endl;
+	  std::cout << "batchSize: " << batchSize << std::endl;
+	  std::cout << "topk: " << kBItems << std::endl;
+	  */
 
-        // Initialize thread barrier
+	// Initialize thread barrier
 	pthread_barrier_init(&barMParts, NULL, nThreads);
 	pthread_barrier_init(&barRead, NULL, nrefiners);
 	pthread_barrier_init(&barRefine, NULL, nrefiners);
@@ -520,7 +519,6 @@ void GraphParts::setPartitioners(const unsigned nthreads) {
 //--------------------------------------------
 void GraphParts::setRefiners(const unsigned nparts) {
 	nParts = nparts;             
-
 }
 
 //--------------------------------------------
